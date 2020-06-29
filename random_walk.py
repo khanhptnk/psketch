@@ -16,8 +16,9 @@ from worlds.cookbook import Cookbook
 from misc import util
 
 
-#Task = namedtuple("Task", ["goal", "steps"])
+Task = namedtuple("Task", ["goal", "steps"])
 
+"""
 class Task(object):
 
     def __init__(self, name, steps=None):
@@ -35,7 +36,7 @@ class Task(object):
     def __eq__(self, other):
         return self.goal_name == other.goal_name and \
                self.goal_arg  == other.goal_arg
-
+"""
 
 class TaskManager(object):
 
