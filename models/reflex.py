@@ -1,4 +1,4 @@
-import net
+from . import net
 
 import numpy as np
 import tensorflow as tf
@@ -102,7 +102,7 @@ class ReflexModel(object):
         batch_indices = [np.random.randint(len(self.experiences))
                 for _ in range(N_BATCH)]
         batch_exp = [self.experiences[i] for i in batch_indices]
-        s1, m1, a, s2, m2, r = zip(*batch_exp)
+        s1, m1, a, s2, m2, r = list(zip(*batch_exp))
         feats1 = [s.features() for s in s1]
         feats2 = [s.features() for s in s2]
         a_mask = np.zeros((len(batch_indices), self.n_actions))

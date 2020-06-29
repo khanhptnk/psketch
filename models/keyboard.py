@@ -1,6 +1,6 @@
 from misc import util
-import net
-import trpo
+from . import net
+from . import trpo
 
 from collections import namedtuple, defaultdict
 import numpy as np
@@ -35,8 +35,8 @@ class KeyboardModel(object):
         pass
 
     def act(self, states):
-        print states[0].pp()
-        k = raw_input("action: ")
+        #print(states[0].pp())
+        k = input("action: ")
         action = int(k)
         terminate = action >= self.world.n_actions
         return [action] * len(states), [terminate] * len(states)

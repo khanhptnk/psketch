@@ -97,7 +97,7 @@ class CurriculumTrainer(object):
 
                 if not done[i]:
                     transitions[i].append(Transition(
-                            states_before[i], mstates_before[i], action[i], 
+                            states_before[i], mstates_before[i], action[i],
                             states_after[i], mstates_after[i], reward))
                     total_reward += reward
 
@@ -146,7 +146,7 @@ class CurriculumTrainer(object):
                     # get enough samples for one training step
                     while err is None:
                         i_iter += N_BATCH
-                        transitions, reward = self.do_rollout(model, world, 
+                        transitions, reward = self.do_rollout(model, world,
                                 possible_tasks, task_probs)
                         for t in transitions:
                             tr = sum(tt.r for tt in t)
@@ -165,7 +165,7 @@ class CurriculumTrainer(object):
                 for i, task in enumerate(possible_tasks):
                     i_task = self.task_index[task]
                     score = 1. * task_rewards[i_task] / task_counts[i_task]
-                    logging.info("[task] %s[%s] %s %s", 
+                    logging.info("[task] %s[%s] %s %s",
                             self.subtask_index.get(task.goal[0]),
                             self.cookbook.index.get(task.goal[1]),
                             task_probs[i],

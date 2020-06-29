@@ -1,5 +1,5 @@
 from misc import util
-import net
+from . import net
 
 from collections import namedtuple, defaultdict
 import logging
@@ -48,7 +48,7 @@ class ModularACModel(object):
 
         self.n_tasks = len(trainer.task_index)
         self.n_modules = len(trainer.subtask_index)
-        self.max_task_steps = max(len(t.steps) for t in trainer.task_index.contents.keys())
+        self.max_task_steps = max(len(t.steps) for t in list(trainer.task_index.contents.keys()))
         if self.config.model.featurize_plan:
             self.n_features = world.n_features + self.n_modules * self.max_task_steps
         else:
@@ -162,13 +162,13 @@ class ModularACModel(object):
         self.t_update_gradient_op = None
 
         params = []
-        for module in actors.values() + critics.values():
+        for module in list(actors.values()) + list(critics.values()):
             params += module.params
         self.saver = tf.train.Saver()
 
         self.session = tf.Session()
         self.session.run(tf.initialize_all_variables())
-        self.session.run([actor.t_decrement_op for actor in actors.values()])
+        self.session.run([actor.t_decrement_op for actor in list(actors.values())])
 
         self.actors = actors
         self.critics = critics
@@ -183,7 +183,7 @@ class ModularACModel(object):
         self.i_task = []
         for i in range(n_act_batch):
             if self.config.model.use_args:
-                subtasks, args = zip(*tasks[i].steps)
+                subtasks, args = list(zip(*tasks[i].steps))
             else:
                 subtasks = tasks[i].steps
                 args = [None] * len(subtasks)
@@ -235,7 +235,7 @@ class ModularACModel(object):
         action = [None] * n_act_batch
         terminate = [None] * n_act_batch
 
-        for k, indices in by_mod.items():
+        for k, indices in list(by_mod.items()):
             i_task, i_subtask = k
             assert len(set(self.subtasks[i] for i in indices)) == 1
             if i_subtask >= len(self.subtasks[indices[0]]):
@@ -294,7 +294,7 @@ class ModularACModel(object):
 
         grads = {}
         params = {}
-        for module in self.actors.values() + self.critics.values():
+        for module in list(self.actors.values()) + list(self.critics.values()):
             for param in module.params:
                 if param.name not in grads:
                     grads[param.name] = np.zeros(param.get_shape(), np.float32)
@@ -312,7 +312,7 @@ class ModularACModel(object):
             all_exps = by_mod[i_task, i_mod1]
             for i_batch in range(int(np.ceil(1. * len(all_exps) / N_BATCH))):
                 exps = all_exps[i_batch * N_BATCH : (i_batch + 1) * N_BATCH]
-                s1, m1, a, s2, m2, r = zip(*exps)
+                s1, m1, a, s2, m2, r = list(zip(*exps))
                 feats1 = [self.featurize(s, m) for s, m in zip(s1, m1)]
                 args1 = [m.arg for m in m1]
                 steps1 = [m.step for m in m1]

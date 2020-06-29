@@ -1,4 +1,4 @@
-from cookbook import Cookbook
+from .cookbook import Cookbook
 
 import numpy as np
 
@@ -57,7 +57,7 @@ class LightWorld(object):
         walls = np.zeros((board_w, board_h))
         walls[0::ROOM_W, :] = 1
         walls[:, 0::ROOM_H] = 1
-        
+
         doors = []
         keys = {}
 
@@ -68,12 +68,12 @@ class LightWorld(object):
         for x, y in walk():
             dx = x - px
             dy = y - py
-            cx = ROOM_W * (init_x + px) + ROOM_W / 2
-            cy = ROOM_H * (init_y + py) + ROOM_H / 2             
-            wx = cx + ROOM_W / 2 * dx
-            wy = cy + ROOM_H / 2 * dy
-            kx = cx + self.random.randint(ROOM_W / 2 + 1) - 1
-            ky = cy + self.random.randint(ROOM_H / 2 + 1) - 1
+            cx = ROOM_W * (init_x + px) + ROOM_W // 2
+            cy = ROOM_H * (init_y + py) + ROOM_H // 2
+            wx = cx + ROOM_W // 2 * dx
+            wy = cy + ROOM_H // 2 * dy
+            kx = cx + self.random.randint(ROOM_W // 2 + 1) - 1
+            ky = cy + self.random.randint(ROOM_H // 2 + 1) - 1
             walls[wx, wy] = 0
             doors.append((wx, wy))
             if self.random.rand() < 0.5:
@@ -87,14 +87,14 @@ class LightWorld(object):
             px = self.random.randint(rooms_x-1)
             py = self.random.randint(rooms_y-1)
             dx, dy = (1, 0) if self.random.randint(2) else (0, 1)
-            cx = ROOM_W * px + ROOM_W / 2
-            cy = ROOM_H * py + ROOM_H / 2
-            wx = cx + ROOM_W / 2 * dx
-            wy = cy + ROOM_H / 2 * dy
+            cx = ROOM_W * px + ROOM_W // 2
+            cy = ROOM_H * py + ROOM_H // 2
+            wx = cx + ROOM_W // 2 * dx
+            wy = cy + ROOM_H // 2 * dy
             if (wx, wy) in doors:
                 continue
-            kx = cx + self.random.randint(ROOM_W / 2 + 1) - 1
-            ky = cy + self.random.randint(ROOM_H / 2 + 1) - 1
+            kx = cx + self.random.randint(ROOM_W // 2 + 1) - 1
+            ky = cy + self.random.randint(ROOM_H // 2 + 1) - 1
             walls[wx, wy] = 0
             doors.append((wx, wy))
             if self.random.rand() < 0.5:
@@ -106,20 +106,20 @@ class LightWorld(object):
         key_features = {k: np.zeros((board_w, board_h, 4)) for k in keys}
         for x in range(board_w):
             for y in range(board_h):
-                rx = x / ROOM_W
-                ry = y / ROOM_H
+                rx = x // ROOM_W
+                ry = y // ROOM_H
                 for dx, dy in doors:
                     #if dx / ROOM_W != rx or dy / ROOM_H != ry:
                     #    continue
-                    if rx not in ((dx + 1) / ROOM_W, (dx - 1) / ROOM_W):
+                    if rx not in ((dx + 1) // ROOM_W, (dx - 1) // ROOM_W):
                         continue
-                    if ry not in ((dy + 1) / ROOM_H, (dy - 1) / ROOM_H):
+                    if ry not in ((dy + 1) // ROOM_H, (dy - 1) // ROOM_H):
                         continue
                     if (x, y) != (dx, dy) and (x % ROOM_W == 0 or y % ROOM_H == 0):
                         continue
                     strength = 10 - np.sqrt(np.square((x - dx, y - dy)).sum())
                     strength = max(strength, 0)
-                    strength /= 10
+                    strength //= 10
                     if dx <= x:
                         door_features[dx, dy][x, y, 0] += strength
                     if dx >= x:
@@ -129,13 +129,13 @@ class LightWorld(object):
                     if dy >= y:
                         door_features[dx, dy][x, y, 3] += strength
                 for kx, ky in keys:
-                    if kx / ROOM_W != rx or ky / ROOM_H != ry:
+                    if kx // ROOM_W != rx or ky // ROOM_H != ry:
                         continue
                     if x % ROOM_W == 0 or y % ROOM_H == 0:
                         continue
                     strength = 10 - np.sqrt(np.square((x - kx, y - ky)).sum())
                     strength = max(strength, 0)
-                    strength /= 10
+                    strength //= 10
                     if kx <= x:
                         key_features[kx, ky][x, y, 0] += strength
                     if kx >= x:
@@ -157,11 +157,11 @@ class LightWorld(object):
         init_room = (init_x, init_y)
         gx, gy = list(walk())[-1]
         goal_room = (init_x + gx, init_y + gy)
-        return LightScenario(walls, doors, keys, door_features, key_features, 
+        return LightScenario(walls, doors, keys, door_features, key_features,
                 init_room, goal_room, self)
 
 class LightScenario(object):
-    def __init__(self, walls, doors, keys, door_features, key_features, 
+    def __init__(self, walls, doors, keys, door_features, key_features,
             init_room, goal_room, world):
         self.walls = walls
         self.doors = doors
@@ -174,8 +174,8 @@ class LightScenario(object):
 
     def init(self):
         ix, iy = self.init_room
-        ix = ROOM_W * ix + ROOM_W / 2
-        iy = ROOM_H * iy + ROOM_H / 2
+        ix = ROOM_W * ix + ROOM_W // 2
+        iy = ROOM_H * iy + ROOM_H // 2
         s = LightState(self.walls, self.doors, self.keys, (ix, iy), self)
         return s
 
@@ -193,7 +193,7 @@ class LightState(object):
             out = np.zeros(12)
             for door in self.doors:
                 df = self.scenario.door_features[door][self.pos[0], self.pos[1], :]
-                if door in self.keys.values():
+                if door in list(self.keys.values()):
                     out[0:4] += df
                 else:
                     out[4:8] += df
@@ -207,7 +207,7 @@ class LightState(object):
 
     def satisfies(self, goal_name, goal_arg):
         px, py = self.pos
-        return (px / ROOM_W, py / ROOM_H) == self.scenario.goal_room
+        return (px // ROOM_W, py // ROOM_H) == self.scenario.goal_room
 
     def step(self, action):
         x, y = self.pos
@@ -230,7 +230,7 @@ class LightState(object):
         nx, ny = x + dx, y + dy
         if self.walls[nx, ny]:
             nx, ny = x, y
-        if (nx, ny) in self.doors and (nx, ny) in self.keys.values():
+        if (nx, ny) in self.doors and (nx, ny) in list(self.keys.values()):
             nx, ny = x, y
         return 0, LightState(self.walls, self.doors, n_keys, (nx, ny), self.scenario)
 
@@ -247,7 +247,7 @@ class LightState(object):
                     out += "##"
                 elif (x, y) in self.keys:
                     out += "Om"
-                elif (x, y) in self.doors and (x, y) in self.keys.values():
+                elif (x, y) in self.doors and (x, y) in list(self.keys.values()):
                     out += "$$"
                 else:
                     out += "  "

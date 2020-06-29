@@ -1,4 +1,4 @@
-from cookbook import Cookbook
+from .cookbook import Cookbook
 from misc import array
 
 import curses
@@ -21,6 +21,30 @@ LEFT = 2
 RIGHT = 3
 USE = 4
 N_ACTIONS = USE + 1
+
+
+icons = { 'boundary':  '◼️ ',
+          'free':      '◻️ ',
+          'workshop0': '🏠',
+          'workshop1': '🏡',
+          'workshop2': '🏘️ ',
+          'water':     '🌊',
+          'stone':     '⛰️ ',
+          'iron':      '🦾',
+          'grass':     '🍀',
+          'wood':      '🌴',
+          'gold':      '💛',
+          'gem':       '💎',
+          'plank':     '🚪',
+          'stick':     '🥢',
+          'axe':       '🪓',
+          'rope':      '🧵',
+          'bed':       '🛏️ ',
+          'shears':    '✂️ ',
+          'cloth':     '👚',
+          'bridge':    '🌉',
+          'ladder':    '🧬',
+        }
 
 def random_free(grid, random):
     pos = None
@@ -120,6 +144,7 @@ class CraftWorld(object):
 
     def visualize(self, transitions):
         def _visualize(win):
+            stdscr = curses.initscr()
             curses.start_color()
             for i in range(1, 8):
                 curses.init_pair(i, i, curses.COLOR_BLACK)
@@ -146,7 +171,8 @@ class CraftWorld(object):
                             elif state.dir == DOWN:
                                 ch1 = "@"
                                 ch2 = "v"
-                            color = curses.color_pair(mstate.arg or 0)
+                            #color = curses.color_pair(mstate.arg or 0)
+                            color = curses.color_pair(0)
                         elif thing == self.cookbook.index["boundary"]:
                             ch1 = ch2 = curses.ACS_BOARD
                             color = curses.color_pair(10 + thing)
@@ -160,7 +186,47 @@ class CraftWorld(object):
                         win.addch(HEIGHT-y, x*2+1, ch2, color)
                 win.refresh()
                 time.sleep(1)
+                c = stdscr.getch()
         curses.wrapper(_visualize)
+
+    def render(self, state):
+        print('\nInventory: ', end='')
+        for i, v in enumerate(state.inventory):
+            if v > 0:
+                name = self.cookbook.index.get(i)
+                print(icons[name], int(v), end=' | ')
+        print()
+        grid_rep = []
+        for y in range(HEIGHT):
+            row_rep = '   '
+            for x in range(WIDTH):
+                if not (state.grid[x, y, :].any() or (x, y) == state.pos):
+                    ch = icons['free']
+                else:
+                    thing = state.grid[x, y, :].argmax()
+                    if (x, y) == state.pos:
+                        #print(state.pos)
+                        if state.dir == LEFT:
+                            ch = '⬅️ '
+                        elif state.dir == RIGHT:
+                            ch = '➡️ '
+                        elif state.dir == UP:
+                            ch = '⬆️ '
+                        elif state.dir == DOWN:
+                            ch = '⬇️ '
+                    elif thing == self.cookbook.index["boundary"]:
+                        ch = icons['boundary']
+                    else:
+                        name = self.cookbook.index.get(thing)
+                        ch = icons[name]
+                row_rep += ch
+            grid_rep.append(row_rep)
+        grid_rep = grid_rep[::-1]
+        print()
+        for row in grid_rep:
+            print(row)
+        print()
+
 
 class CraftScenario(object):
     def __init__(self, grid, init_pos, world):
@@ -190,12 +256,12 @@ class CraftState(object):
     def features(self):
         if self._cached_features is None:
             x, y = self.pos
-            hw = WINDOW_WIDTH / 2
-            hh = WINDOW_HEIGHT / 2
-            bhw = (WINDOW_WIDTH * WINDOW_WIDTH) / 2
-            bhh = (WINDOW_HEIGHT * WINDOW_HEIGHT) / 2
+            hw = WINDOW_WIDTH // 2
+            hh = WINDOW_HEIGHT // 2
+            bhw = (WINDOW_WIDTH * WINDOW_WIDTH) // 2
+            bhh = (WINDOW_HEIGHT * WINDOW_HEIGHT) // 2
 
-            grid_feats = array.pad_slice(self.grid, (x-hw, x+hw+1), 
+            grid_feats = array.pad_slice(self.grid, (x-hw, x+hw+1),
                     (y-hh, y+hh+1))
             grid_feats_big = array.pad_slice(self.grid, (x-bhw, x+bhw+1),
                     (y-bhh, y+bhh+1))
@@ -207,14 +273,14 @@ class CraftState(object):
             self.gfb = grid_feats_big_red.transpose((2, 0, 1))
 
             pos_feats = np.asarray(self.pos)
-            pos_feats[0] /= WIDTH
-            pos_feats[1] /= HEIGHT
+            pos_feats[0] //= WIDTH
+            pos_feats[1] //= HEIGHT
 
             dir_features = np.zeros(4)
             dir_features[self.dir] = 1
 
             features = np.concatenate((grid_feats.ravel(),
-                    grid_feats_big_red.ravel(), self.inventory, 
+                    grid_feats_big_red.ravel(), self.inventory,
                     dir_features, [0]))
             assert len(features) == self.world.n_features
             self._cached_features = features
@@ -267,7 +333,7 @@ class CraftState(object):
                         thing == self.world.water_index or \
                         thing == self.world.stone_index):
                     continue
-                
+
                 n_inventory = self.inventory.copy()
                 n_grid = self.grid.copy()
 
@@ -279,7 +345,7 @@ class CraftState(object):
                 elif thing in self.world.workshop_indices:
                     # TODO not with strings
                     workshop = cookbook.index.get(thing)
-                    for output, inputs in cookbook.recipes.items():
+                    for output, inputs in list(cookbook.recipes.items()):
                         if inputs["_at"] != workshop:
                             continue
                         yld = inputs["_yield"] if "_yield" in inputs else 1
@@ -317,3 +383,6 @@ class CraftState(object):
     def next_to(self, i_kind):
         x, y = self.pos
         return self.grid[x-1:x+2, y-1:y+2, i_kind].any()
+
+    def render(self):
+        self.world.render(self)

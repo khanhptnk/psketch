@@ -23,7 +23,7 @@ def main():
 
 def configure():
     # load config
-    with open("config.yaml") as config_f:
+    with open("configs/config.yaml") as config_f:
         config = Struct(**yaml.load(config_f))
 
     # set up experiment

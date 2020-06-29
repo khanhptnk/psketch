@@ -1,5 +1,5 @@
 from misc import util
-import net
+from . import net
 
 from collections import namedtuple, defaultdict
 import numpy as np
@@ -84,7 +84,7 @@ class ModularModel(object):
         return self.cached_train_ops[mod1, mod2]
 
     def init(self, state, hint):
-        self.actions, self.args = zip(*hint)
+        self.actions, self.args = list(zip(*hint))
         self.hint_index = 0
 
     def experience(self, transitions):
@@ -143,7 +143,7 @@ class ModularModel(object):
             mod0 = self.modules[i_mod0]
             mod1 = self.modules[i_mod1]
             exps = by_mods[i_mod0, i_mod1]
-            s1, m1, a, s2, m2, r = zip(*exps)
+            s1, m1, a, s2, m2, r = list(zip(*exps))
             feats1 = [s.features() for s in s1]
             feats2 = [s.features() for s in s2]
             args1 = [m[1] for m in m1]
