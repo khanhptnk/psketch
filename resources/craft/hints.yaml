@@ -1,47 +1,29 @@
-"get[wood]":
-  ["go[wood]", "use"]
-
-"get[grass]":
-  ["go[grass]", "use"]
- 
-"get[iron]":
-  ["go[iron]", "use"]
-
-"makeat[ws0]":
-  ["go[ws0]", "use"]
-
-"makeat[ws1]":
-  ["go[ws1]", "use"]
-
-"makeat[ws2]":
-  ["go[ws2]", "use"]
- 
 "make[plank]":
-  ["get[wood]", "makeat[ws0]"]
+  ["get_wood", "make0"]
 
 "make[stick]":
-  ["get[wood]", "makeat[ws1]"]
+  ["get_wood", "make1"]
 
 "make[cloth]":
-  ["get[grass]", "makeat[ws2]"]
+  ["get_grass", "make2"]
 
 "make[rope]":
-  ["get[grass]", "makeat[ws0]"]
+  ["get_grass", "make0"]
 
 "make[bridge]":
-  ["get[iron]", "get[wood]", "makeat[ws2]"]
+  ["get_iron", "get_wood", "make2"]
 
 "make[bed]":
-  ["make[plank]", "get[grass]", "makeat[ws1]"]
+  ["get_wood", "make0", "get_grass", "make1"]
 
 "make[axe]":
-  ["make[stick]", "get[iron]", "makeat[ws0]"]
+  ["get_wood", "make1", "get_iron", "make0"]
 
 "make[shears]":
-  ["make[stick]", "get[iron]", "makeat[ws1]"]
+  ["get_wood", "make1", "get_iron", "make1"]
 
-#"get[gold]":
-#  ["make[bridge]", "get[gold]"]
+"get[gold]":
+  ["get_iron", "get_wood", "make2", "get_gold"]
 
-#"get[gem]":
-#  ["make[axe]", "get[gem]"]
+"get[gem]":
+  ["get_wood", "make1", "get_iron", "make0", "get_gem"]
