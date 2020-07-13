@@ -1,3 +1,6 @@
+import sys
+sys.path.append('..')
+
 from .cookbook import Cookbook
 from misc import array
 
@@ -6,6 +9,8 @@ import logging
 import numpy as np
 from skimage.measure import block_reduce
 import time
+
+from misc import util
 
 WIDTH = 10
 HEIGHT = 10
@@ -20,7 +25,8 @@ UP = 1
 LEFT = 2
 RIGHT = 3
 USE = 4
-N_ACTIONS = USE + 1
+STOP = 5
+N_ACTIONS = STOP + 1
 
 
 icons = { 'boundary':  '◼️ ',
@@ -71,12 +77,35 @@ def neighbors(pos, dir=None):
 class CraftWorld(object):
     def __init__(self, config):
         self.cookbook = Cookbook(config.recipes)
-        self.n_features = \
+        self.n_features = config.student.model.input_size = \
                 2 * WINDOW_WIDTH * WINDOW_HEIGHT * self.cookbook.n_kinds + \
                 self.cookbook.n_kinds + \
                 4 + \
                 1
-        self.n_actions = N_ACTIONS
+        self.n_actions = config.student.model.n_actions = N_ACTIONS
+        self.actions = util.Struct(**{
+                'DOWN' : { 'index'       : DOWN,
+                           'coord_change': (0, -1) },
+                'UP'   : { 'index'       : UP,
+                           'coord_change': (0, 1)  },
+                'LEFT' : { 'index'       : LEFT,
+                           'coord_change': (-1, 0) },
+                'RIGHT': { 'index'       : RIGHT,
+                           'coord_change': (1, 0)  },
+                'USE'  : { 'index'       : USE,
+                           'coord_change': (0, 0)  },
+                'STOP' : { 'index'       : STOP,
+                           'coord_change': (0, 0)  },
+
+            })
+        self.action_space = [
+                self.actions.DOWN,
+                self.actions.UP,
+                self.actions.LEFT,
+                self.actions.RIGHT,
+                self.actions.USE,
+                self.actions.STOP
+            ]
 
         self.non_grabbable_indices = self.cookbook.environment
         self.grabbable_indices = [i for i in range(self.cookbook.n_kinds)
@@ -86,9 +115,10 @@ class CraftWorld(object):
         self.water_index = self.cookbook.index["water"]
         self.stone_index = self.cookbook.index["stone"]
 
-        self.random = np.random.RandomState(0)
+        self.random = config.random
 
     def sample_scenario_with_goal(self, goal):
+        goal = self.cookbook.index[goal]
         assert goal not in self.cookbook.environment
         if goal in self.cookbook.primitives:
             make_island = goal == self.cookbook.index["gold"]
@@ -140,7 +170,8 @@ class CraftWorld(object):
         # generate init pos
         init_pos = random_free(grid, self.random)
 
-        return CraftScenario(grid, init_pos, self)
+        #return CraftScenario(grid, init_pos, self)
+        return self.make_scenario(grid, init_pos)
 
     def visualize(self, transitions):
         def _visualize(win):
@@ -226,13 +257,21 @@ class CraftWorld(object):
         for row in grid_rep:
             print(row)
         print()
+        return grid_rep
+
+    def make_scenario(self, grid, pos, dir=0):
+        return CraftScenario(grid, pos, self, init_dir=dir)
+
+    def init_state(self, grid, pos, dir=0):
+        return self.make_scenario(grid, pos, dir=dir).init()
 
 
 class CraftScenario(object):
-    def __init__(self, grid, init_pos, world):
+
+    def __init__(self, grid, init_pos, world, init_dir=0):
         self.init_grid = grid
         self.init_pos = init_pos
-        self.init_dir = 0
+        self.init_dir = init_dir
         self.world = world
 
     def init(self):
@@ -250,8 +289,16 @@ class CraftState(object):
         self.dir = dir
         self._cached_features = None
 
-    def satisfies(self, goal_name, goal_arg):
-        return self.inventory[goal_arg] > 0
+    def satisfies(self, task):
+        thing = self.world.cookbook.index[task.goal_arg]
+        if task.goal_name in ['make', 'get']:
+            return self.inventory[thing] > 0
+        if task.goal_name == 'go':
+            coord_change = self.world.action_space[self.dir].coord_change
+            new_pos = (self.pos[0] + coord_change[0],
+                       self.pos[1] + coord_change[1])
+            return self.grid[new_pos[0], new_pos[1], thing] > 0
+        return None
 
     def features(self):
         if self._cached_features is None:
@@ -273,6 +320,7 @@ class CraftState(object):
             self.gfb = grid_feats_big_red.transpose((2, 0, 1))
 
             pos_feats = np.asarray(self.pos)
+
             pos_feats[0] //= WIDTH
             pos_feats[1] //= HEIGHT
 
@@ -386,3 +434,10 @@ class CraftState(object):
 
     def render(self):
         self.world.render(self)
+
+    def make_navigation_grid(self):
+        return self.grid.max(axis=2)
+
+    def find_resource_positions(self, goal_arg):
+        thing = self.world.cookbook.index[goal_arg]
+        return list(zip(*self.grid[:, :, thing].nonzero()))

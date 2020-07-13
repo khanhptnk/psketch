@@ -2,15 +2,25 @@ name: test
 recipes: "resources/craft/recipes.yaml"
 world: 
   name: CraftWorld
-model: 
-  name: KeyboardModel
-  use_args: false
-  featurize_plan: true
-  max_subtask_timesteps: 15
-  baseline: state
+student:
+  name: ImitationStudent
+  model: 
+    name: LSTMSeq2SeqModel
+    hidden_size: 256
+    word_embed_size: 64
+    dropout_ratio: .0
+    learning_rate: .0001
+teacher:
+  name: DemonstrationTeacher
 trainer: 
-  name: CurriculumTrainer
+  batch_size: 32
+  name: ImitationTrainer
   use_curriculum: true
   improvement_threshold: 0.8
-  hints: "resources/craft/hints.yaml"
+  hints: "resources/craft/hints.hierarchy.yaml"
   max_timesteps: 100
+  max_iters: 1000
+  log_every: 100
+seed: 123
+data_path: "/home/khanhptnk/Code/psketch/data"
+device_id: 0

@@ -1,44 +1,77 @@
+"left[none]":
+  []
+
+"right[none]":
+  []
+
+"up[none]":
+  []
+
+"down[none]":
+  []
+
+"use[none]":
+  []
+
+"go[wood]":
+  []
+
+"go[iron]":
+  []
+
+"go[grass]":
+  []
+
+"go[workshop0]":
+  []
+
+"go[workshop1]":
+  []
+
+"go[workshop2]":
+  []
+
 "get[wood]":
-  ["go[wood]", "use"]
+  ["go[wood]", "use[none]"]
 
 "get[grass]":
-  ["go[grass]", "use"]
+  ["go[grass]", "use[none]"]
  
 "get[iron]":
-  ["go[iron]", "use"]
+  ["go[iron]", "use[none]"]
 
-"makeat[ws0]":
-  ["go[ws0]", "use"]
+"makeat[workshop0]":
+  ["go[workshop0]", "use[none]"]
 
-"makeat[ws1]":
-  ["go[ws1]", "use"]
+"makeat[workshop1]":
+  ["go[workshop1]", "use[none]"]
 
-"makeat[ws2]":
-  ["go[ws2]", "use"]
+"makeat[workshop2]":
+  ["go[workshop2]", "use[none]"]
  
 "make[plank]":
-  ["get[wood]", "makeat[ws0]"]
+  ["get[wood]", "makeat[workshop0]"]
 
 "make[stick]":
-  ["get[wood]", "makeat[ws1]"]
+  ["get[wood]", "makeat[workshop1]"]
 
 "make[cloth]":
-  ["get[grass]", "makeat[ws2]"]
+  ["get[grass]", "makeat[workshop2]"]
 
 "make[rope]":
-  ["get[grass]", "makeat[ws0]"]
+  ["get[grass]", "makeat[workshop0]"]
 
 "make[bridge]":
-  ["get[iron]", "get[wood]", "makeat[ws2]"]
+  ["get[iron]", "get[wood]", "makeat[workshop2]"]
 
 "make[bed]":
-  ["make[plank]", "get[grass]", "makeat[ws1]"]
+  ["make[plank]", "get[grass]", "makeat[workshop1]"]
 
 "make[axe]":
-  ["make[stick]", "get[iron]", "makeat[ws0]"]
+  ["make[stick]", "get[iron]", "makeat[workshop0]"]
 
 "make[shears]":
-  ["make[stick]", "get[iron]", "makeat[ws1]"]
+  ["make[stick]", "get[iron]", "makeat[workshop1]"]
 
 #"get[gold]":
 #  ["make[bridge]", "get[gold]"]

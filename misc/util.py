@@ -1,4 +1,6 @@
 import re
+import math
+import time
 
 class Struct:
     def __init__(self, **entries):
@@ -101,3 +103,17 @@ def parse_fexp(fexp):
     m = FEXP_RE.match(fexp)
     return (m.group(1), m.group(2))
 
+def as_minutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
+
+def time_since(since, percent):
+    now = time.time()
+    s = now - since
+    es = s / (percent)
+    rs = es - s
+    return '%s (- %s)' % (as_minutes(s), as_minutes(rs))
+
+def add_stat(a, b):
+    return (a[0] + sum(b), a[1] + len(b))

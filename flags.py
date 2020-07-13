@@ -1,5 +1,6 @@
 import jsonargparse
 import yaml
+import numpy as np
 
 from misc.util import Struct
 
@@ -15,12 +16,15 @@ def update_config(source, target):
 
 
 def make_config():
+
     parser = jsonargparse.ArgumentParser()
 
     parser.add_argument('-config_file', type=str, default='configs/config.yaml')
 
+    parser.add_argument('-seed', type=int)
     parser.add_argument('-name', type=str)
     parser.add_argument('-recipes', type=str)
+    parser.add_argument('-device_id', type=int)
 
     parser.add_argument('-world.name', type=str)
 
@@ -43,7 +47,9 @@ def make_config():
 
     update_config(jsonargparse.namespace_to_dict(flags), config)
 
-    return Struct(**config)
+    config = Struct(**config)
+
+    return config
 
 
 if __name__ == '__main__':

@@ -1,11 +1,12 @@
-from .reflex import ReflexModel
-from .attentive import AttentiveModel
-from .modular import ModularModel
-from .modular_ac import ModularACModel
-from .keyboard import KeyboardModel
+#from .reflex import ReflexModel
+#from .attentive import AttentiveModel
+#from .modular import ModularModel
+#from .modular_ac import ModularACModel
+#from .keyboard import KeyboardModel
+from .lstm_seq2seq import LSTMSeq2SeqModel
 
 def load(config):
-    cls_name = config.model.name
+    cls_name = config.student.model.name
     try:
         cls = globals()[cls_name]
         return cls(config)
