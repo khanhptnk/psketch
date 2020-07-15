@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import logging
 
 import torch
 import torch.nn as nn
@@ -11,15 +12,15 @@ import models
 
 class ImitationStudent(object):
 
-    def __init__(self, config, model_path=None):
+    def __init__(self, config):
         self.config = config
         self.device = config.device
 
         self.model = models.load(config).to(self.device)
         self.optim = torch.optim.Adam(self.model.parameters(),
                                       lr=config.student.model.learning_rate)
-        if model_path is not None:
-            self.load(model_path)
+        if hasattr(config.student.model, 'load_from'):
+            self.load(config.student.model.load_from)
 
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
 
@@ -88,18 +89,13 @@ class ImitationStudent(object):
         ckpt = { 'model_state_dict': self.model.state_dict(),
                  'optim_state_dict': self.optim.state_dict() }
         torch.save(ckpt, file_path)
-        print('Saved %s model to %s' % (name, file_path))
-
-        if trajectories is not None:
-            file_path = os.path.join(self.config.experiment_dir, name + '.traj')
-            with open(file_path, 'w') as f:
-                json.dump(trajectories, f)
-            print('Saved %s trajectories to %s' % (name, file_path))
+        logging.info('Saved %s model to %s' % (name, file_path))
 
     def load(self, file_path):
-        ckpt = torch.load(path, map_location=self.device)
+        ckpt = torch.load(file_path, map_location=self.device)
         self.model.load_state_dict(ckpt['model_state_dict'])
         self.optim.load_state_dict(ckpt['optim_state_dict'])
+        logging.info('Loaded model from %s' % file_path)
 
 
 

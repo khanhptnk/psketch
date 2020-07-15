@@ -1,6 +1,11 @@
 import re
+import os
 import math
 import time
+import logging
+import sys
+from datetime import datetime
+
 
 class Struct:
     def __init__(self, **entries):
@@ -37,6 +42,7 @@ class Struct:
     def __repr__(self):
         return "Struct(%r)" % self.__dict__
 
+
 class Index:
     def __init__(self):
         self.contents = dict()
@@ -68,6 +74,40 @@ class Index:
 
     def __iter__(self):
         return iter(self.ordered_contents)
+
+
+class ElapsedFormatter():
+
+    def __init__(self):
+        self.start_time = datetime.now()
+
+    def format_time(self, t):
+        return str(t)[:-7]
+
+    def format(self, record):
+        elapsed_time = self.format_time(datetime.now() - self.start_time)
+        log_str = "%s %s: %s" % (elapsed_time,
+                                record.levelname,
+                                record.getMessage())
+
+        return log_str
+
+
+def config_logging(log_file):
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(ElapsedFormatter())
+
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(ElapsedFormatter())
+
+    logging.basicConfig(level=logging.INFO,
+                        handlers=[stream_handler, file_handler])
+
+    def handler(type, value, tb):
+        logging.exception("Uncaught exception: %s", str(value))
+        logging.exception("\n".join(traceback.format_exception(type, value, tb)))
+    sys.excepthook = handler
+
 
 def flatten(lol):
     if isinstance(lol, tuple) or isinstance(lol, list):

@@ -10,21 +10,30 @@ from collections import defaultdict, namedtuple
 import flags
 import worlds
 import models
+import teachers
 import data
 
 from misc.experience import Transition
 from worlds.cookbook import Cookbook
 from misc import util
-from worlds.craft import random_free, CraftScenario
 
 
-WIDTH = 10
-HEIGHT = 10
+#WIDTH = 10
+#HEIGHT = 10
 
-N_WORKSHOPS = 3
+#N_WORKSHOPS = 3
 
 
-def is_connected(grid, init_pos):
+def all_free_cells_reachable(grid, init_pos=None):
+
+    if init_pos is None:
+        for i, row in enumerate(grid):
+            for j, c in enumerate(row):
+                if c == 0:
+                    init_pos = (i, j)
+                    break
+            if init_pos is not None:
+                break
 
     prev = {}
     queue = [None] * 1000
@@ -62,40 +71,49 @@ def is_connected(grid, init_pos):
 
     return True
 
-def random_free(grid, random, keep_connected=True):
+def random_free(world, grid, random, keep_connected=True):
     nav_grid = grid.max(axis=2)
     pos = None
+    #print()
+    #print(nav_grid.transpose()[::-1])
     while pos is None:
-        (x, y) = (random.randint(WIDTH), random.randint(HEIGHT))
+        (x, y) = (random.randint(world.WIDTH), random.randint(world.HEIGHT))
         if nav_grid[x, y]:
             continue
         is_good = True
         if keep_connected:
             nav_grid[x, y] = 1
-            for i, row in enumerate(nav_grid):
-                for j, c in enumerate(row):
-                    if c == 1 and 0 < i < WIDTH - 1 and 0 < j < HEIGHT - 1 and\
-                    not is_connected(nav_grid, (i, j)):
-                        is_good = False
+            if not all_free_cells_reachable(nav_grid):
+                is_good = False
+            else:
+                for i, row in enumerate(nav_grid):
+                    for j, c in enumerate(row):
+                        if c == 1 and 0 < i < world.WIDTH - 1 \
+                           and 0 < j < world.HEIGHT - 1 \
+                           and not all_free_cells_reachable(nav_grid, (i, j)):
+                            is_good = False
+                            break
+                    if not is_good:
                         break
         if is_good:
             pos = (x, y)
         else:
             nav_grid[x, y] = 0
+    #print(nav_grid.transpose()[::-1])
     return pos
 
 def sample_scenario(world, ingredients, config, make_island=False, make_cave=False):
     # generate grid
-    grid = np.zeros((WIDTH, HEIGHT, world.cookbook.n_kinds))
+    grid = np.zeros((world.WIDTH, world.HEIGHT, world.cookbook.n_kinds))
     i_bd = world.cookbook.index["boundary"]
     grid[0, :, i_bd] = 1
-    grid[WIDTH-1:, :, i_bd] = 1
+    grid[world.WIDTH-1:, :, i_bd] = 1
     grid[:, 0, i_bd] = 1
-    grid[:, HEIGHT-1:, i_bd] = 1
+    grid[:, world.HEIGHT-1:, i_bd] = 1
 
     # treasure
     if make_island or make_cave:
-        (gx, gy) = (1 + np.random.randint(WIDTH-2), 1)
+        (gx, gy) = (1 + np.random.randint(world.WIDTH-2), 1)
         treasure_index = \
                 world.cookbook.index["gold"] if make_island else world.cookbook.index["gem"]
         wall_index = \
@@ -111,24 +129,33 @@ def sample_scenario(world, ingredients, config, make_island=False, make_cave=Fal
         if primitive == world.cookbook.index["gold"] or \
                 primitive == world.cookbook.index["gem"]:
             continue
-        for i in range(4):
-            (x, y) = random_free(grid, config.random)
+        for i in range(world.N_PRIMITIVES):
+            (x, y) = random_free(world, grid, config.random)
             grid[x, y, primitive] = 1
 
     # generate crafting stations
-    for i_ws in range(N_WORKSHOPS):
-        ws_x, ws_y = random_free(grid, config.random)
+    for i_ws in range(world.N_WORKSHOPS):
+        ws_x, ws_y = random_free(world, grid, config.random)
         grid[ws_x, ws_y, world.cookbook.index["workshop%d" % i_ws]] = 1
 
     # generate init pos
-    init_pos = random_free(grid, config.random)
+    init_pos = random_free(world, grid, config.random)
 
     return grid, init_pos
+
+def get_reference_actions(task, world, teacher, state):
+    actions = [teacher(task, state)]
+    while actions[-1] != world.actions.STOP.index:
+        _, state = state.step(actions[-1])
+        actions.append(teacher(task, state))
+    assert state.satisfies(task)
+    return actions
 
 config = flags.make_config()
 config.random = np.random.RandomState(123)
 task_manager = data.TaskManager(config)
 world = worlds.load(config)
+teacher = teachers.load(config)
 
 ingredients = []
 for i in ["wood", "grass", "iron"]:
@@ -136,8 +163,7 @@ for i in ["wood", "grass", "iron"]:
 
 seed_scenarios = []
 
-N_WORLDS = 100
-for i in range(N_WORLDS):
+for i in range(world.N_WORLDS):
     print(i)
     while True:
         grid, init_pos = sample_scenario(world, ingredients, config)
@@ -151,7 +177,7 @@ for i in range(N_WORLDS):
     scenario.init().render()
     seed_scenarios.append(scenario)
 
-assert len(seed_scenarios) == N_WORLDS
+assert len(seed_scenarios) == world.N_WORLDS
 
 N_POS = 20
 
@@ -173,12 +199,18 @@ for scenario in seed_scenarios:
         task_instance['task'] = str(task)
         task_instance['init_pos'] = []
         task_instance['ids'] = []
+        task_instance['ref_actions'] = []
         while len(task_instance['init_pos']) < N_POS:
-            pos = random_free(grid, config.random, keep_connected=False)
+            pos = random_free(world, grid, config.random, keep_connected=False)
             if pos not in task_instance['init_pos']:
                 i_instance += 1
                 task_instance['ids'].append('instance_%d' % i_instance)
                 task_instance['init_pos'].append(pos)
+
+                state = world.init_state(grid, pos)
+                ref_actions = get_reference_actions(task, world, teacher, state)
+                task_instance['ref_actions'].append(ref_actions)
+
         assert len(task_instance['init_pos']) == N_POS
         item['task_instances'].append(task_instance)
     data_by_env.append(item)
@@ -189,35 +221,21 @@ datasets = {}
 
 print(len(data_by_env))
 
-N_TRAIN_ENV = 80
-N_DEV_ENV = 10
-N_DEV_ENV = 10
+N_TRAIN_ENV = world.N_WORLDS * 80 // 100
+N_DEV_ENV = world.N_WORLDS * 10 // 100
+N_DEV_ENV = world.N_WORLDS * 10 // 100
 
 datasets['train'] = data_by_env[:N_TRAIN_ENV]
 datasets['dev']   = data_by_env[N_TRAIN_ENV:(N_TRAIN_ENV + N_DEV_ENV)]
 datasets['test']  = data_by_env[(N_TRAIN_ENV + N_DEV_ENV):]
 
-"""
-grid = np.array(datasets['train'][0]['scenario'])
-task_instance = datasets['train'][0]['task_instances'][0]
-
-for pos in task_instance['init_pos']:
-    pos = tuple(pos)
-    scenario = CraftScenario(grid, pos, world)
-    state = scenario.init()
-    print(state.pos)
-    print(task_instance['task'])
-    state.render()
-    _, state = state.step(2)
-    state.render()
-    _, state = state.step(4)
-    state.render()
-    break
-"""
-
-for name in ['train', 'dev', 'test']:
-    with open('data/' + name + '.json', 'w') as f:
-        json.dump(datasets[name], f, indent=2)
+for split in ['train', 'dev', 'test']:
+    file_name = os.path.join(
+        config.data_dir, config.world.config + '_' + split + '.json')
+    with open(file_name, 'w') as f:
+        json.dump(datasets[split], f, indent=2)
+    print('Saved %s with length %d to %s' %
+        (split, len(datasets[split]), file_name))
 
 
 

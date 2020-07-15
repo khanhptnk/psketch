@@ -4,6 +4,7 @@ import time
 import logging
 import numpy as np
 from datetime import datetime
+from collections import defaultdict
 
 import torch
 
@@ -29,7 +30,23 @@ def main():
     logging.info(str(student.model))
 
     with torch.cuda.device(config.device_id):
-        trainer.train(datasets, world, student, teacher)
+        _, dev_eval_info = trainer.evaluate(
+            datasets['dev'], world, student, teacher, save_traj=True)
+        breakdown_results(dev_eval_info, datasets['dev'])
+        _, test_eval_info = trainer.evaluate(
+            datasets['test'], world, student, teacher, save_traj=True)
+        breakdown_results(test_eval_info, datasets['test'])
+
+def breakdown_results(eval_info, dataset):
+    success_table = defaultdict(list)
+    for instance in dataset:
+        instance_id = instance['id']
+        task = instance['task']
+        success_table[task.goal_name].append(eval_info[instance_id]['success'])
+        success_table[str(task)].append(eval_info[instance_id]['success'])
+
+    for k, v in success_table.items():
+        logging.info('%15s %.1f' % (k, sum(v) / len(v) * 100))
 
 def configure():
 
@@ -38,9 +55,8 @@ def configure():
     config.command_line = 'python -u ' + ' '.join(sys.argv)
 
     config.experiment_dir = os.path.join("experiments/%s" % config.name)
-    assert not os.path.exists(config.experiment_dir), \
-            "Experiment %s already exists!" % config.experiment_dir
-    os.mkdir(config.experiment_dir)
+    assert os.path.exists(config.experiment_dir), \
+            "Experiment %s not exists!" % config.experiment_dir
 
     torch.manual_seed(config.seed)
     random = np.random.RandomState(config.seed)
@@ -54,7 +70,6 @@ def configure():
     util.config_logging(log_file)
     logging.info(str(datetime.now()))
     logging.info(config.command_line)
-    logging.info('Write log to %s' % log_file)
     logging.info(str(config))
 
     return config

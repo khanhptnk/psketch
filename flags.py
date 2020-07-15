@@ -19,26 +19,37 @@ def make_config():
 
     parser = jsonargparse.ArgumentParser()
 
-    parser.add_argument('-config_file', type=str, default='configs/config.yaml')
+    parser.add_argument('-config_file', type=str)
 
     parser.add_argument('-seed', type=int)
     parser.add_argument('-name', type=str)
     parser.add_argument('-recipes', type=str)
     parser.add_argument('-device_id', type=int)
+    parser.add_argument('-data_dir', type=str)
+    parser.add_argument('-traj_file', type=str)
+
 
     parser.add_argument('-world.name', type=str)
+    parser.add_argument('-world.config', type=str)
 
-    parser.add_argument('-model.name', type=str)
-    parser.add_argument('-model.use_args', type=int)
-    parser.add_argument('-model.featurize_plan', type=int)
-    parser.add_argument('-model.max_sub_task_timesteps', type=int)
-    parser.add_argument('-model.baseline', type=str)
+    parser.add_argument('-student.name', type=str)
+    parser.add_argument('-student.model.name', type=str)
+    parser.add_argument('-student.model.hidden_size', type=int)
+    parser.add_argument('-student.model.word_embed_size', type=int)
+    parser.add_argument('-student.model.dropout_ratio', type=float)
+    parser.add_argument('-student.model.learning_rate', type=float)
+    parser.add_argument('-student.model.load_from', type=str)
+
+    parser.add_argument('-teacher.name', type=str)
 
     parser.add_argument('-trainer.name', type=str)
     parser.add_argument('-trainer.use_curriculum', type=int)
-    parser.add_argument('-trainer.improvement_threshold', type=float)
     parser.add_argument('-trainer.hints', type=str)
     parser.add_argument('-trainer.max_timesteps', type=int)
+    parser.add_argument('-trainer.log_every', type=int)
+    parser.add_argument('-trainer.batch_size', type=int)
+    parser.add_argument('-trainer.policy_mix.init_rate', type=float)
+    parser.add_argument('-trainer.policy_mix.decay_every', type=int)
 
     flags = parser.parse_args()
 
