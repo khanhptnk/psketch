@@ -272,3 +272,19 @@
 1:59:40 INFO: New best success rate: 72.3
 1:59:41 INFO: Saved best_dev model to experiments/dagger_no_mix/best_dev.ckpt
 1:59:41 INFO: Saved eval info to experiments/dagger_no_mix/best_dev.traj
+2:02:05 INFO: 
+2:02:05 INFO: Train iter 19500 (97%): policy mix rate = 0.00, loss = 0.2784, success rate = 78.8, distance (get tasks only) = 0.25, num interactions = 10335306
+2:02:05 INFO: Saved last model to experiments/dagger_no_mix/last.ckpt
+2:02:22 INFO: Evaluation on dev: success rate = 66.9, distance (get tasks only) = 0.50
+2:04:45 INFO: 
+2:04:45 INFO: Train iter 20000 (100%): policy mix rate = 0.00, loss = 0.3181, success rate = 79.2, distance (get tasks only) = 0.25, num interactions = 10536559
+2:04:45 INFO: Saved last model to experiments/dagger_no_mix/last.ckpt
+2:05:01 INFO: Evaluation on dev: success rate = 61.4, distance (get tasks only) = 0.66
+2:07:26 INFO: 
+2:07:26 INFO: Train iter 20500 (102%): policy mix rate = 0.00, loss = 0.3162, success rate = 79.6, distance (get tasks only) = 0.25, num interactions = 10739047
+2:07:26 INFO: Saved last model to experiments/dagger_no_mix/last.ckpt
+2:07:45 INFO: Evaluation on dev: success rate = 64.9, distance (get tasks only) = 0.65
+2:10:11 INFO: 
+2:10:11 INFO: Train iter 21000 (105%): policy mix rate = 0.00, loss = 0.2933, success rate = 79.9, distance (get tasks only) = 0.24, num interactions = 10937972
+2:10:11 INFO: Saved last model to experiments/dagger_no_mix/last.ckpt
+2:10:33 INFO: Evaluation on dev: success rate = 69.9, distance (get tasks only) = 0.43

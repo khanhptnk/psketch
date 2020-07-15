@@ -41,8 +41,9 @@ class ImitationTrainer(object):
         action_seqs = [[] for i in range(batch_size)]
         num_interactions = 0
 
-        behavior_clone = self.config.random.binomial(
-            1, self.policy_mix_rate, size=batch_size)
+        if not is_eval:
+            behavior_clone = self.config.random.binomial(
+                1, self.policy_mix_rate, size=batch_size)
 
         while not all(done):
             actions = student.act(states)

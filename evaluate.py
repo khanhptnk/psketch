@@ -46,7 +46,8 @@ def breakdown_results(eval_info, dataset):
         success_table[str(task)].append(eval_info[instance_id]['success'])
 
     for k, v in success_table.items():
-        logging.info('%15s %.1f' % (k, sum(v) / len(v) * 100))
+        logging.info('%15s (%4.1f%%) %.1f' %
+            (k, len(v) / len(dataset) * 100, sum(v) / len(v) * 100))
 
 def configure():
 
@@ -66,7 +67,7 @@ def configure():
 
     config.start_time = time.time()
 
-    log_file = os.path.join(config.experiment_dir, 'run.log')
+    log_file = os.path.join(config.experiment_dir, 'eval.log')
     util.config_logging(log_file)
     logging.info(str(datetime.now()))
     logging.info(config.command_line)
