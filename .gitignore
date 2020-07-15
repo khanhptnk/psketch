@@ -2,6 +2,7 @@
 *.swp
 *.lprof
 *.pem
+*.bak
 job_log.txt
 spot_requests.log
 run.sh.complete
