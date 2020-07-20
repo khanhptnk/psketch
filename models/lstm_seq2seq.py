@@ -33,9 +33,9 @@ class EncoderLSTM(nn.Module):
         embed = self.drop(embed)
 
         h0 = self.lstm.init_state(input.size(0))
-        context, _ = self.lstm(embed, h0)
+        context, (last_h, last_c) = self.lstm(embed, h0)
 
-        return context
+        return context, last_h, last_c
 
 
 class DecoderLSTM(nn.Module):
@@ -53,10 +53,13 @@ class DecoderLSTM(nn.Module):
             device)
         self.device = device
 
-    def init_state(self, batch_size):
+    def init_state(self, batch_size, h0=None):
         #self.zeros_vec = torch.zeros(
         #    (batch_size, 1), dtype=torch.uint8, device=self.device)
-        self.h = self.lstm.init_state(batch_size)
+        if h0 is None:
+            self.h = self.lstm.init_state(batch_size)
+        else:
+            self.h = h0
 
     def forward(self, input):
         input_drop = self.drop(input)
@@ -72,42 +75,49 @@ class LSTMSeq2SeqModel(nn.Module):
 
         super(LSTMSeq2SeqModel, self).__init__()
 
-        hparams = config.student.model
-        self.device = config.device
-
-        enc_hidden_size = hparams.hidden_size
-
         self.encoder = EncoderLSTM(
-            hparams.vocab_size,
-            hparams.word_embed_size,
-            enc_hidden_size,
-            hparams.pad_idx,
-            hparams.dropout_ratio,
-            self.device)
+            config.vocab_size,
+            config.word_embed_size,
+            config.enc_hidden_size,
+            config.pad_idx,
+            config.dropout_ratio,
+            config.device)
 
         self.decoder = DecoderLSTM(
-            hparams.input_size,
-            hparams.hidden_size,
-            hparams.dropout_ratio,
-            self.device)
+            config.input_size,
+            config.dec_hidden_size,
+            config.dropout_ratio,
+            config.device)
 
         self.attention = Attention(
-            hparams.hidden_size, hparams.hidden_size, hparams.hidden_size // 2)
+            config.hidden_size, config.hidden_size, config.hidden_size // 2)
 
         self.predictor = nn.Sequential(
-                nn.Linear(hparams.hidden_size * 2, hparams.hidden_size),
+                nn.Linear(config.hidden_size * 2, config.hidden_size),
                 nn.Tanh(),
-                nn.Linear(hparams.hidden_size, hparams.n_actions)
+                nn.Linear(config.hidden_size, config.n_actions)
             )
 
-    def init(self, batch_size, seq):
-        self.context = self.encoder(seq)
-        self.decoder.init_state(batch_size)
+        self.enc2dec = nn.Sequential(
+                nn.Linear(config.hidden_size, config.hidden_size),
+                nn.Tanh()
+            )
 
-    def decode(self, obs):
+        self.device = config.device
+
+    def init(self, batch_size, seq, attention_mask=None):
+        self.context, last_enc_h, last_enc_c = self.encoder(seq)
+
+        last_enc_h = self.enc2dec(last_enc_h)
+
+        self.decoder.init_state(batch_size, h0=(last_enc_h, last_enc_c))
+        self.attention_mask = attention_mask
+
+    def decode(self, obs, attention_mask=None):
 
         dec_output = self.decoder(obs)
-        attended_context, _ = self.attention(dec_output, self.context)
+        attended_context, _ = self.attention(
+            dec_output, self.context, mask=self.attention_mask)
 
         feature = torch.cat([dec_output, attended_context], dim=1)
         logit = self.predictor(feature)

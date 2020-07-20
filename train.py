@@ -26,8 +26,6 @@ def main():
     student = students.load(config)
     teacher = teachers.load(config)
 
-    logging.info(str(student.model))
-
     with torch.cuda.device(config.device_id):
         trainer.train(datasets, world, student, teacher)
 

@@ -58,8 +58,9 @@ class TaskManager(object):
         for task in self.tasks:
             task.encoding = self.encode_task(task)
 
-        config.student.model.pad_idx = self.vocab['<PAD>']
-        config.student.model.vocab_size = len(self.vocab)
+        #config.student.model.pad_idx = self.vocab['<PAD>']
+        #config.student.model.vocab_size = len(self.vocab)
+        config.vocab = self.vocab
 
     def encode_task(self, task):
         return [self.vocab[task.goal_name], self.vocab[task.goal_arg]]

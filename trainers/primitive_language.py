@@ -8,76 +8,96 @@ import json
 import torch
 
 from misc import util
+from .imitation import ImitationTrainer
 
 
-class ImitationTrainer(object):
-
-    def __init__(self, config):
-        self.config = config
+class PrimitiveLanguageTrainer(ImitationTrainer):
 
     def do_rollout(self, batch, world, student, teacher, is_eval):
-        states = []
+
+        init_states = []
         tasks = []
-        goal_names, goal_args = [], []
+        instructions = []
 
         batch_size = len(batch)
         for item in batch:
             tasks.append(item['task'])
-            states.append(world.init_state(item['grid'], item['init_pos']))
+            init_states.append(world.init_state(item['grid'], item['init_pos']))
+            instructions.append(teacher.instruct(world, item['ref_actions']))
 
-        student.init(tasks, states, is_eval)
+        print(init_states[0].render())
+        print(batch[0]['ref_actions'], instructions[0])
+        student.init(tasks, instructions, init_states, is_eval)
 
+        states = init_states[:]
         timer = [self.config.trainer.max_timesteps] * batch_size
-
         done = [False] * batch_size
-        success = [False] * batch_size
         action_seqs = [[] for i in range(batch_size)]
+        state_seqs = [[state] for state in states]
         num_interactions = 0
 
-        if not is_eval:
-            behavior_clone = self.config.random.binomial(
-                1, self.policy_mix_rate, size=batch_size)
-
         while not all(done):
-            actions = student.act(states)
 
-            ref_actions = [None] * batch_size
+            if is_eval:
+                actions = student.act(states)
+            else:
+                actions = student.instructed_act(states)
 
             for i in range(batch_size):
-                # Ask teacher for reference action
-                if not is_eval:
-                    if done[i]:
-                        ref_actions[i] = -1
-                    else:
-                        ref_actions[i] = teacher(tasks[i], states[i])
-                        num_interactions += 1
-
-                    if behavior_clone[i]:
-                        actions[i] = ref_actions[i]
 
                 if not done[i]:
-                    # Save action
+                    _, states[i] = states[i].step(actions[i])
                     action_seqs[i].append(actions[i])
+                    state_seqs[i].append(states[i])
 
                 timer[i] -= 1
                 done[i] |= actions[i] == world.actions.STOP.index or \
                            timer[i] <= 0
 
-                # Transition to next state
-                if done[i]:
-                    success[i] = states[i].satisfies(tasks[i])
-                    assert success[i] is not None
-                else:
-                    _, states[i] = states[i].step(actions[i])
+        if not is_eval:
+            descriptions = []
+            for i in range(batch_size):
+                description = teacher.describe(
+                    world, action_seqs[i], state_seqs[i])
+                descriptions.append(description)
+            print(action_seqs[0], descriptions[0])
+            student.receive(descriptions)
 
-            # Receive reference actions
-            if not is_eval:
-                student.receive(ref_actions)
+            # Decode the second time. This time without exploration
+            student.set_instructions(instructions)
+            student.reset_history()
+            student.instructed_model.eval()
 
+            states = init_states[:]
+            timer = [self.config.trainer.max_timesteps] * batch_size
+            done = [False] * batch_size
+            action_seqs = [[] for i in range(batch_size)]
+
+            while not all(done):
+
+                actions = student.instructed_act(states)
+
+                for i in range(batch_size):
+
+                    #actions[i] = teacher(tasks[i], states[i])
+                    #student.action_seqs[-1][i] = actions[i]
+
+                    if not done[i]:
+                        _, states[i] = states[i].step(actions[i])
+                        action_seqs[i].append(actions[i])
+
+                    timer[i] -= 1
+                    done[i] |= actions[i] == world.actions.STOP.index or \
+                           timer[i] <= 0
+
+            print(action_seqs[0])
+            print()
+            student.imitate_instructed()
+
+        success = []
         distances = []
         for i in range(batch_size):
-            if not done[i]:
-                success[i] = states[i].satisfies(tasks[i])
+            success.append(states[i].satisfies(tasks[i]))
             if tasks[i].goal_name == 'get':
                 if not success[i]:
                     state = world.init_state(
@@ -97,6 +117,7 @@ class ImitationTrainer(object):
 
         return info
 
+    """
     def train(self, datasets, world, student, teacher):
 
         student.prepare(world)
@@ -218,4 +239,4 @@ class ImitationTrainer(object):
         with open(file_path, 'w') as f:
             json.dump(eval_info, f)
         logging.info('Saved eval info to %s' % file_path)
-
+    """

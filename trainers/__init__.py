@@ -1,4 +1,5 @@
 from .imitation import ImitationTrainer
+from .primitive_language import PrimitiveLanguageTrainer
 
 def load(config):
     cls_name = config.trainer.name

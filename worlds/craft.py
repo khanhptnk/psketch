@@ -350,7 +350,8 @@ class CraftState(object):
         elif action == RIGHT:
             dx, dy = (1, 0)
             n_dir = RIGHT
-
+        elif action == STOP:
+            dx, dy = (0, 0)
         # use actions
         elif action == USE:
             cookbook = self.world.cookbook
@@ -438,6 +439,10 @@ class CraftState(object):
     def next_to(self, i_kind):
         x, y = self.pos
         return self.grid[x-1:x+2, y-1:y+2, i_kind].any()
+
+    def hit_wall(self):
+        neighbors = self.neighbors(self.pos, self.dir)
+        return not neighbors
 
     def render(self):
         self.world.render(self)

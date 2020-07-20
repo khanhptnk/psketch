@@ -6,7 +6,7 @@
 from .lstm_seq2seq import LSTMSeq2SeqModel
 
 def load(config):
-    cls_name = config.student.model.name
+    cls_name = config.name
     try:
         cls = globals()[cls_name]
         return cls(config)

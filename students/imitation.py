@@ -16,11 +16,22 @@ class ImitationStudent(object):
         self.config = config
         self.device = config.device
 
-        self.model = models.load(config).to(self.device)
+        model_config = config.student.model
+        model_config.device = config.device
+        model_config.vocab_size = len(config.vocab)
+        model_config.enc_hidden_size = config.student.model.hidden_size
+        model_config.dec_hidden_size = config.student.model.hidden_size
+        model_config.pad_idx = config.vocab['<PAD>']
+
+        self.model = models.load(model_config).to(self.device)
+
+        logging.info('model: ' + str(self.model))
+
         self.optim = torch.optim.Adam(self.model.parameters(),
                                       lr=config.student.model.learning_rate)
         if hasattr(config.student.model, 'load_from'):
             self.load(config.student.model.load_from)
+
 
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
 
@@ -47,7 +58,7 @@ class ImitationStudent(object):
 
         task_encodings = []
         for task in tasks:
-            task_encodings.append(task.encoding)
+            task_encodings.append(list(reversed(task.encoding)))
         task_encodings = self._to_tensor(task_encodings).long()
 
         self.model.init(batch_size, task_encodings)

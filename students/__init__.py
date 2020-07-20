@@ -4,6 +4,7 @@
 #from .modular_ac import ModularACModel
 #from .keyboard import KeyboardModel
 from .imitation import ImitationStudent
+from .primitive_language import PrimitiveLanguageStudent
 
 def load(config):
     cls_name = config.student.name
