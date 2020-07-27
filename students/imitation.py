@@ -19,9 +19,9 @@ class ImitationStudent(object):
         model_config = config.student.model
         model_config.device = config.device
         model_config.vocab_size = len(config.vocab)
+        model_config.pad_idx = config.vocab['<PAD>']
         model_config.enc_hidden_size = config.student.model.hidden_size
         model_config.dec_hidden_size = config.student.model.hidden_size
-        model_config.pad_idx = config.vocab['<PAD>']
 
         self.model = models.load(model_config).to(self.device)
 
@@ -31,7 +31,6 @@ class ImitationStudent(object):
                                       lr=config.student.model.learning_rate)
         if hasattr(config.student.model, 'load_from'):
             self.load(config.student.model.load_from)
-
 
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
 

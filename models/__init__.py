@@ -4,6 +4,7 @@
 #from .modular_ac import ModularACModel
 #from .keyboard import KeyboardModel
 from .lstm_seq2seq import LSTMSeq2SeqModel
+from .transformer_seq2seq import TransformerSeq2SeqModel
 
 def load(config):
     cls_name = config.name

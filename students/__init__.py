@@ -5,6 +5,8 @@
 #from .keyboard import KeyboardModel
 from .imitation import ImitationStudent
 from .primitive_language import PrimitiveLanguageStudent
+from .interactive_primitive_language import InteractivePrimitiveLanguageStudent
+
 
 def load(config):
     cls_name = config.student.name

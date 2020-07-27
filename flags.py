@@ -39,6 +39,7 @@ def make_config():
     parser.add_argument('-student.model.dropout_ratio', type=float)
     parser.add_argument('-student.model.learning_rate', type=float)
     parser.add_argument('-student.model.load_from', type=str)
+    parser.add_argument('-student.model.num_layers', type=int)
 
     parser.add_argument('-teacher.name', type=str)
 

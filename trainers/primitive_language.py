@@ -30,18 +30,23 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
         student.init(tasks, instructions, init_states, is_eval)
 
         states = init_states[:]
+        #if is_eval:
         timer = [self.config.trainer.max_timesteps] * batch_size
+        #else:
+        #    timer = [len(item['ref_actions']) for item in batch]
         done = [False] * batch_size
         action_seqs = [[] for i in range(batch_size)]
         state_seqs = [[state] for state in states]
         num_interactions = 0
 
+        t = 0
+
         while not all(done):
 
             if is_eval:
-                actions = student.act(states)
+                actions = student.act(states, t)
             else:
-                actions = student.instructed_act(states)
+                actions = student.instructed_act(states, t)
 
             for i in range(batch_size):
 
@@ -53,6 +58,10 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
                 timer[i] -= 1
                 done[i] |= actions[i] == world.actions.STOP.index or \
                            timer[i] <= 0
+                if done[i]:
+                    student.terminate(i)
+
+            t += 1
 
         if not is_eval:
             descriptions = []
@@ -70,12 +79,15 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
 
             states = init_states[:]
             timer = [self.config.trainer.max_timesteps] * batch_size
+            #timer = [len(item['ref_actions']) for item in batch]
             done = [False] * batch_size
             action_seqs = [[] for i in range(batch_size)]
 
+            t = 0
+
             while not all(done):
 
-                actions = student.instructed_act(states)
+                actions = student.instructed_act(states, t)
 
                 for i in range(batch_size):
 
@@ -90,8 +102,18 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
                     done[i] |= actions[i] == world.actions.STOP.index or \
                            timer[i] <= 0
 
-            print(action_seqs[0])
-            print()
+                    if done[i]:
+                        student.terminate(i)
+                t += 1
+
+            for i in range(batch_size):
+                #if tuple(action_seqs[i]) != batch[i]['ref_actions']:
+                if i == 0:
+                    #nit_states[i].render()
+                    #print(batch[i]['ref_actions'], instructions[i])
+                    print(action_seqs[i], descriptions[i])
+                    print()
+                    break
             student.imitate_instructed()
 
         success = []
@@ -117,126 +139,3 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
 
         return info
 
-    """
-    def train(self, datasets, world, student, teacher):
-
-        student.prepare(world)
-
-        max_iters = self.config.trainer.max_iters
-        log_every = self.config.trainer.log_every
-
-        i_iter = 0
-        total_loss = 0
-        total_success = (0, 0)
-        total_distance = (0, 0)
-        total_interactions = 0
-        best_eval_success_rate = -1e9
-
-        self.policy_mix_rate = self.config.trainer.policy_mix.init_rate
-        decay_every = self.config.trainer.policy_mix.decay_every
-
-        for batch in itertools.cycle(datasets['train'].iterate_batches()):
-
-            i_iter += 1
-
-            info = self.do_rollout(batch, world, student, teacher, False)
-            success = info['success']
-            distances = info['distances']
-            num_interactions = info['num_interactions']
-
-            total_success = util.add_stat(total_success, success)
-            total_distance = util.add_stat(total_distance, distances)
-            total_interactions += num_interactions
-
-            loss = student.learn()
-            total_loss += loss
-
-            if i_iter % log_every == 0:
-
-                avg_loss = total_loss / log_every
-                avg_success_rate = total_success[0] / total_success[1] * 100
-                avg_distance = total_distance[0] / total_distance[1]
-
-                total_loss = 0
-
-                log_str = 'Train iter %d (%d%%): ' % \
-                    (i_iter, i_iter / max_iters * 100)
-                log_str += 'policy mix rate = %.2f' % self.policy_mix_rate
-                log_str += ', loss = %.4f' % avg_loss
-                log_str += ', success rate = %.1f' % avg_success_rate
-                log_str += ', distance (get tasks only) = %.2f' % avg_distance
-                log_str += ', num interactions = %d' % total_interactions
-
-                logging.info('')
-                logging.info(log_str)
-
-                # Save last student's model
-                student.save('last')
-
-                # Save best student's model
-                eval_success_rate, eval_info = \
-                    self.evaluate(datasets['dev'], world, student, teacher)
-                if eval_success_rate > best_eval_success_rate:
-                    logging.info('New best success rate: %.1f' %
-                        eval_success_rate)
-                    best_eval_success_rate = eval_success_rate
-                    student.save('best_dev')
-                    traj_file_path = os.path.join(
-                        self.config.experiment_dir, 'best_dev.traj')
-                    self.save_eval_info(traj_file_path, eval_info)
-
-            if decay_every is not None and i_iter % decay_every == 0:
-                self.policy_mix_rate = 0.9**(i_iter // decay_every)
-                logging.info('Decay policy mix rate to %.2f' %
-                    self.policy_mix_rate)
-
-    def evaluate(self, dataset, world, student, teacher, save_traj=False):
-
-        eval_info = {}
-        total_success = (0, 0)
-        total_distance = (0, 0)
-
-        for i, batch in enumerate(dataset.iterate_batches()):
-
-            with torch.no_grad():
-                info = self.do_rollout(batch, world, student, teacher, True)
-                success = info['success']
-                distances = info['distances']
-                action_seqs = info['action_seqs']
-
-            total_success = util.add_stat(total_success, success)
-            total_distance = util.add_stat(total_distance, distances)
-
-            assert len(batch) == len(action_seqs)
-            zipped_info = zip(batch, action_seqs, success)
-            for item, traj, is_success in zipped_info:
-                assert item['id'] not in eval_info
-                eval_info[item['id']] = {
-                        'actions': traj,
-                        'success': int(is_success),
-                    }
-
-        for instance in dataset:
-            assert instance['id'] in eval_info, instance['id']
-
-        success_rate = total_success[0] / total_success[1] * 100
-        avg_distance = total_distance[0] / total_distance[1]
-
-        log_str = 'Evaluation on %s: ' % dataset.split
-        log_str += 'success rate = %.1f' % success_rate
-        log_str += ', distance (get tasks only) = %.2f' % avg_distance
-
-        logging.info(log_str)
-
-        if save_traj:
-            traj_file_path = os.path.join(
-                self.config.experiment_dir, dataset.split + '.traj')
-            self.save_eval_info(traj_file_path, eval_info)
-
-        return success_rate, eval_info
-
-    def save_eval_info(self, file_path, eval_info):
-        with open(file_path, 'w') as f:
-            json.dump(eval_info, f)
-        logging.info('Saved eval info to %s' % file_path)
-    """
