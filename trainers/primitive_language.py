@@ -37,7 +37,8 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
         done = [False] * batch_size
         action_seqs = [[] for i in range(batch_size)]
         state_seqs = [[state] for state in states]
-        num_interactions = 0
+        num_interactions = sum([len(instr) for instr in instructions]) * (not is_eval)
+        num_steps = 0
 
         t = 0
 
@@ -54,6 +55,7 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
                     _, states[i] = states[i].step(actions[i])
                     action_seqs[i].append(actions[i])
                     state_seqs[i].append(states[i])
+                    num_steps += (not is_eval)
 
                 timer[i] -= 1
                 done[i] |= actions[i] == world.actions.STOP.index or \
@@ -134,7 +136,8 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
                 'action_seqs': action_seqs,
                 'success': success,
                 'distances': distances,
-                'num_interactions': num_interactions
+                'num_interactions': num_interactions,
+                'num_steps': num_steps
             }
 
         return info

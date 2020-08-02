@@ -6,6 +6,7 @@
 from .imitation import ImitationStudent
 from .primitive_language import PrimitiveLanguageStudent
 from .interactive_primitive_language import InteractivePrimitiveLanguageStudent
+from .active_primitive_language import ActivePrimitiveLanguageStudent
 
 
 def load(config):

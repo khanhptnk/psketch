@@ -26,7 +26,7 @@ class Task(object):
                self.goal_arg  == other.goal_arg
 
     def __str__(self):
-        return self.goal_name + '[' + self.goal_arg + ']'
+        return self.goal_name + ' ' + self.goal_arg
 
 
 class TaskManager(object):

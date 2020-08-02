@@ -1,0 +1,30 @@
+name: imitation_transformer
+recipes: "resources/craft/recipes.yaml"
+world:
+  name: CraftWorld
+  config: "craft_medium"
+student:
+  name: ImitationStudent
+  model: 
+    name: TransformerSeq2SeqModel
+    hidden_size: 64
+    word_embed_size: 64
+    dropout_ratio: .0
+    num_layers: 2
+    nhead: 8
+    learning_rate: .001
+teacher:
+  name: DemonstrationTeacher
+trainer: 
+  batch_size: 32
+  name: ImitationTrainer
+  hints: "resources/craft/hints.hierarchy.yaml"
+  max_timesteps: 40
+  max_iters: 20000
+  log_every: 500
+  policy_mix:
+      init_rate: 0
+      decay_every: null
+seed: 123
+data_dir: "data"
+device_id: 0

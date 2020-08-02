@@ -8,10 +8,10 @@ import json
 import torch
 
 from misc import util
-from .primitive_language import PrimitiveLanguageTrainer
+from .interactive_primitive_language import InteractivePrimitiveLanguageTrainer
 
 
-class InteractivePrimitiveLanguageTrainer(PrimitiveLanguageTrainer):
+class ActivePrimitiveLanguageTrainer(InteractivePrimitiveLanguageTrainer):
 
     def do_rollout(self, batch, world, student, teacher, is_eval):
 
@@ -34,24 +34,31 @@ class InteractivePrimitiveLanguageTrainer(PrimitiveLanguageTrainer):
         timer = [self.config.trainer.max_timesteps] * batch_size
         done = [False] * batch_size
         action_seqs = [[] for i in range(batch_size)]
+        ask_action_seqs = [[] for i in range(batch_size)]
         num_interactions = 0
         num_steps = 0
 
-        instructions = [None] * batch_size
-        descriptions = [None] * batch_size
+        instructions = [['<PAD>'] for _ in range(batch_size)]
+        descriptions = [['<PAD>'] for _ in range(batch_size)]
 
         while not all(done):
 
             if is_eval:
                 actions = student.act(states)
             else:
-                # Teacher gives a language subgoal
+                actions, ask_actions = student.act(states)
+
                 for i in range(batch_size):
-                    instructions[i] = teacher(tasks[i], states[i])
-                    num_interactions += (not is_eval and not done[i])
-                # Student executes the subgoal
+                    if ask_actions[i] == student.ASK:
+                        instructions[i] = teacher(tasks[i], states[i])
+                        num_interactions += (not is_eval and not done[i])
+
                 student.set_instructions(instructions, is_eval=False)
-                actions = student.instructed_act(states)
+                instructed_actions = student.instructed_act(states, ask_actions)
+
+                for i in range(batch_size):
+                    if ask_actions[i] == student.ASK:
+                        actions[i] = instructed_actions[i]
 
             prev_states = states[:]
 
@@ -63,10 +70,14 @@ class InteractivePrimitiveLanguageTrainer(PrimitiveLanguageTrainer):
                     num_steps += (not is_eval)
 
                     # Teacher describes student actions
-                    descriptions[i] = teacher.describe(
-                        world, [actions[i]], [prev_states[i], states[i]])
+                    if not is_eval:
+                        ask_action_seqs[i].append(ask_actions[i])
+                        if ask_actions[i] == student.ASK:
+                            descriptions[i] = teacher.describe(world,
+                                [actions[i]], [prev_states[i], states[i]])
 
-            student.receive(descriptions)
+            if not is_eval:
+                student.receive(descriptions, ask_actions)
 
             for i in range(batch_size):
                 timer[i] -= 1
@@ -76,9 +87,11 @@ class InteractivePrimitiveLanguageTrainer(PrimitiveLanguageTrainer):
                     student.terminate(i)
 
         if not is_eval:
+            student.set_tasks(tasks, is_eval)
             student.imitate_instructed()
 
         print(action_seqs[0])
+        print(ask_action_seqs[0])
         print()
 
         success = []

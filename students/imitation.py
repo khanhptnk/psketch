@@ -49,18 +49,20 @@ class ImitationStudent(object):
 
         self.is_eval = is_eval
 
-        batch_size = len(states)
+        self.batch_size = len(states)
 
         self.ref_action_seqs = []
         self.action_logit_seqs = []
-        self.has_terminated = [False] * batch_size
+        self.has_terminated = [False] * self.batch_size
+
+        self.time = 0
 
         task_encodings = []
         for task in tasks:
             task_encodings.append(list(reversed(task.encoding)))
         task_encodings = self._to_tensor(task_encodings).long()
 
-        self.model.init(batch_size, task_encodings)
+        self.model.init(self.batch_size, task_encodings)
 
     def receive(self, ref_actions):
         ref_actions = self._to_tensor(ref_actions).long()
@@ -70,7 +72,8 @@ class ImitationStudent(object):
         state_features = [state.features() for state in states]
         state_features = self._to_tensor(state_features).float()
 
-        action_logits = self.model.decode(state_features)
+        time_feature = torch.tensor([self.time] * self.batch_size).to(self.device)
+        action_logits = self.model.decode(state_features, time_feature)
         self.action_logit_seqs.append(action_logits)
 
         if self.is_eval:

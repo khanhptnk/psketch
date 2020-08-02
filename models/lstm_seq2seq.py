@@ -113,6 +113,7 @@ class LSTMSeq2SeqModel(nn.Module):
         self.tgt_time_embedding = nn.Embedding(100, time_embed_size)
 
         self.device = config.device
+        self.n_actions = config.n_actions
 
     def init(self, batch_size, src, src_mask=None):
 

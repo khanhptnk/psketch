@@ -33,6 +33,7 @@ def make_config():
     parser.add_argument('-world.config', type=str)
 
     parser.add_argument('-student.name', type=str)
+    parser.add_argument('-student.uncertainty_threshold', type=float)
     parser.add_argument('-student.model.name', type=str)
     parser.add_argument('-student.model.hidden_size', type=int)
     parser.add_argument('-student.model.word_embed_size', type=int)

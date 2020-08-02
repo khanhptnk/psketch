@@ -33,6 +33,7 @@ class ImitationTrainer(object):
         success = [False] * batch_size
         action_seqs = [[] for i in range(batch_size)]
         num_interactions = 0
+        num_steps = 0
 
         if not is_eval:
             behavior_clone = self.config.random.binomial(
@@ -50,7 +51,7 @@ class ImitationTrainer(object):
                         ref_actions[i] = -1
                     else:
                         ref_actions[i] = teacher(tasks[i], states[i])
-                        num_interactions += 1
+                        num_interactions += (not is_eval and not done[i])
 
                     if behavior_clone[i]:
                         actions[i] = ref_actions[i]
@@ -69,6 +70,7 @@ class ImitationTrainer(object):
                     assert success[i] is not None
                 else:
                     _, states[i] = states[i].step(actions[i])
+                    num_steps += (not is_eval)
 
             # Receive reference actions
             if not is_eval:
@@ -92,7 +94,8 @@ class ImitationTrainer(object):
                 'action_seqs': action_seqs,
                 'success': success,
                 'distances': distances,
-                'num_interactions': num_interactions
+                'num_interactions': num_interactions,
+                'num_steps': num_steps
             }
 
         return info
@@ -109,6 +112,7 @@ class ImitationTrainer(object):
         total_success = (0, 0)
         total_distance = (0, 0)
         total_interactions = 0
+        total_steps = 0
         best_eval_success_rate = -1e9
 
         self.policy_mix_rate = self.config.trainer.policy_mix.init_rate
@@ -122,10 +126,12 @@ class ImitationTrainer(object):
             success = info['success']
             distances = info['distances']
             num_interactions = info['num_interactions']
+            num_steps = info['num_steps']
 
             total_success = util.add_stat(total_success, success)
             total_distance = util.add_stat(total_distance, distances)
             total_interactions += num_interactions
+            total_steps += num_steps
 
             loss = student.learn()
             total_loss += loss
@@ -144,7 +150,8 @@ class ImitationTrainer(object):
                 log_str += ', loss = %.4f' % avg_loss
                 log_str += ', success rate = %.1f' % avg_success_rate
                 log_str += ', distance (get tasks only) = %.2f' % avg_distance
-                log_str += ', num interactions = %d' % total_interactions
+                log_str += ', num interactions = %d / %d' % \
+                    (total_interactions, total_steps)
 
                 logging.info('')
                 logging.info(log_str)
