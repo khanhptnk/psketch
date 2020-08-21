@@ -1,2 +1,6 @@
 # psketch
-Modular multitask reinforcement learning with policy sketches
+
+
+1. Clone repo: `git clone https://github.com/khanhptnk/psketch.git`
+
+2. 
