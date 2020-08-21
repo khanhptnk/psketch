@@ -15,6 +15,9 @@ You must delete `experiments/primitive_language` to able to run the experiment a
 
 ### Visualization
 
+Trajectories of best model is saved in `experiments/primitive_language/best_dev.traj`. You can visualize these trajectories using the `visualize.py` script
+
+`python visualize.py -config configs/experiments/primitive_language.yaml -traj_file experiments/primitive_language/best_dev.traj`
 
 ### Code structure
 
