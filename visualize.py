@@ -47,7 +47,7 @@ traj_ids = list(eval_info.keys())
 
 while True:
     print('>> ', end='')
-    instance_id = 'instance_' + input('Enter an instance ID: ')
+    instance_id = 'instance_' + input('Enter an instance ID or type `rand` for a random instance: ')
 
     if instance_id == 'instance_rand':
         instance_id = config.random.choice(list(eval_info.keys()))
@@ -60,6 +60,7 @@ while True:
         print(instance['task'], '(success)' if result['success'] else '(fail)')
         state.render()
         for a in result['actions']:
+            print('Press Enter to continue')
             key = input()
             if a == world.actions.STOP.index:
                 break
