@@ -357,7 +357,7 @@ class CraftState(object):
             cookbook = self.world.cookbook
             dx, dy = (0, 0)
             success = False
-            for nx, ny in self.neighbors(self.pos, self.dir):
+            for nx, ny in self.neighbors():
                 here = self.grid[nx, ny, :]
                 if not self.grid[nx, ny, :].any():
                     continue
@@ -423,7 +423,24 @@ class CraftState(object):
         new_state = CraftState(self.scenario, n_grid, (n_x, n_y), n_dir, n_inventory)
         return reward, new_state
 
+    """
     def neighbors(self, pos, dir=None):
+        x, y = pos
+        neighbors = []
+        if x > 0 and (dir is None or dir == LEFT):
+            neighbors.append((x-1, y))
+        if y > 0 and (dir is None or dir == DOWN):
+            neighbors.append((x, y-1))
+        if x < self.world.WIDTH - 1 and (dir is None or dir == RIGHT):
+            neighbors.append((x+1, y))
+        if y < self.world.HEIGHT - 1 and (dir is None or dir == UP):
+            neighbors.append((x, y+1))
+        return neighbors
+    """
+
+    def neighbors(self):
+        pos = self.pos
+        dir = self.dir
         x, y = pos
         neighbors = []
         if x > 0 and (dir is None or dir == LEFT):
@@ -440,9 +457,11 @@ class CraftState(object):
         x, y = self.pos
         return self.grid[x-1:x+2, y-1:y+2, i_kind].any()
 
+    """
     def hit_wall(self):
         neighbors = self.neighbors(self.pos, self.dir)
         return not neighbors
+    """
 
     def render(self):
         self.world.render(self)
@@ -453,3 +472,16 @@ class CraftState(object):
     def find_resource_positions(self, goal_arg):
         thing = self.world.cookbook.index[goal_arg]
         return list(zip(*self.grid[:, :, thing].nonzero()))
+
+    def get_item_name_by_id(self, id):
+        return self.world.cookbook.index.get(id)
+
+    def get_item_name_at(self, pos):
+        x, y = pos
+        here = self.grid[x, y, :]
+        if here.sum() > 0:
+            item_id = self.grid[x, y, :].argmax()
+            if item_id in self.world.grabbable_indices or \
+               item_id in self.world.workshop_indices:
+                return self.get_item_name_by_id(item_id)
+        return None

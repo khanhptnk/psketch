@@ -63,10 +63,14 @@ class InteractivePrimitiveLanguageTrainer(PrimitiveLanguageTrainer):
                     num_steps += (not is_eval)
 
                     # Teacher describes student actions
-                    descriptions[i] = teacher.describe(
-                        world, [actions[i]], [prev_states[i], states[i]])
+                    if not is_eval:
+                        descriptions[i] = teacher.describe(
+                            world, [actions[i]], [prev_states[i], states[i]])
 
-            student.receive(descriptions)
+                        num_interactions += len(descriptions[i])
+
+            if not is_eval:
+                student.receive(descriptions)
 
             for i in range(batch_size):
                 timer[i] -= 1

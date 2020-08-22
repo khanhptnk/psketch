@@ -75,6 +75,7 @@ class ActivePrimitiveLanguageTrainer(InteractivePrimitiveLanguageTrainer):
                         if ask_actions[i] == student.ASK:
                             descriptions[i] = teacher.describe(world,
                                 [actions[i]], [prev_states[i], states[i]])
+                            num_interactions += len(descriptions[i])
 
             if not is_eval:
                 student.receive(descriptions, ask_actions)

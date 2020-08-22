@@ -3,9 +3,10 @@ import sys
 import json
 import logging
 import numpy as np
+sys.path.append('..')
 
 from .task import TaskManager
-
+from misc import util
 
 class Dataset(object):
 
@@ -49,7 +50,7 @@ class Dataset(object):
         for item in data:
             grid = item['grid']
             for task_instance in item['task_instances']:
-                task_name = task_instance['task']
+                task_name = ' '.join(util.parse_fexp(task_instance['task']))
                 task = self.task_manager[task_name]
                 init_positions = task_instance['init_pos']
                 ids = task_instance['ids']

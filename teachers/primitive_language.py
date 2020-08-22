@@ -42,8 +42,6 @@ class PrimitiveLanguageTeacher(DemonstrationTeacher):
             if action in self.student_action_map:
                 action_str = self.student_action_map[action]
 
-            #print(len(self.student_action_map))
-
             # Infer the last action
             if action_str is None and \
                len(self.student_action_map) == len(world.action_space) - 1:

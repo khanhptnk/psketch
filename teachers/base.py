@@ -6,11 +6,13 @@ class BaseTeacher(object):
 
     def __init__(self, config):
         self.config = config
+        self.task_manager = config.task_manager
 
-    def find_incomplete_subtask(self, task, state):
+    def find_incomplete_subtask(self, task, state, debug=False):
 
         if state.satisfies(task):
             return None
+
         if task.subtasks is None:
             return task
 

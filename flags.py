@@ -53,6 +53,9 @@ def make_config():
     parser.add_argument('-trainer.policy_mix.init_rate', type=float)
     parser.add_argument('-trainer.policy_mix.decay_every', type=int)
 
+    parser.add_argument('-sanity_check_1', type=int, default=0)
+    parser.add_argument('-sanity_check_2', type=int, default=0)
+
     flags = parser.parse_args()
 
     with open(flags.config_file) as f:

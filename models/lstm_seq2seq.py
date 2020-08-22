@@ -10,17 +10,15 @@ from .base import LSTMWrapper, Attention
 
 class EncoderLSTM(nn.Module):
 
-    def __init__(self, vocab_size, embedding_size, hidden_size, padding_idx,
-            dropout_ratio, device):
+    def __init__(self, input_size, hidden_size, padding_idx, dropout_ratio,
+            device):
 
         super(EncoderLSTM, self).__init__()
 
-        self.embedding_size = embedding_size
         self.hidden_size = hidden_size
         self.drop = nn.Dropout(p=dropout_ratio)
-        self.embedding = nn.Embedding(vocab_size, embedding_size, padding_idx)
         self.lstm = LSTMWrapper(
-            embedding_size,
+            input_size,
             hidden_size,
             dropout_ratio,
             device,
@@ -28,9 +26,6 @@ class EncoderLSTM(nn.Module):
         self.device = device
 
     def forward(self, input):
-
-        #embed = self.embedding(input)
-        #embed = self.drop(embed)
 
         h0 = self.lstm.init_state(input.size(0))
         context, (last_h, last_c) = self.lstm(input, h0)
@@ -53,13 +48,23 @@ class DecoderLSTM(nn.Module):
             device)
         self.device = device
 
-    def init_state(self, batch_size, h0=None):
-        #self.zeros_vec = torch.zeros(
-        #    (batch_size, 1), dtype=torch.uint8, device=self.device)
+    def init_state(self, h0, reset_indices=None):
+        """
         if h0 is None:
             self.h = self.lstm.init_state(batch_size)
         else:
             self.h = h0
+        """
+        if reset_indices is None:
+            #self.h = self.lstm.init_state(batch_size)
+            self.h = h0
+        else:
+            #h0 = self.lstm.init_state(len(indices))
+            for idx in reset_indices:
+                #self.h[0][:, idx, :] = 0 #h0[0][:, i, :]
+                #self.h[1][:, idx, :] = 0 #h0[1][:, i, :]
+                self.h[0][:, idx, :] = h0[0][:, idx, :]
+                self.h[1][:, idx, :] = h0[1][:, idx, :]
 
     def forward(self, input):
         input_drop = self.drop(input)
@@ -78,7 +83,6 @@ class LSTMSeq2SeqModel(nn.Module):
         time_embed_size = 64
 
         self.encoder = EncoderLSTM(
-            config.vocab_size,
             config.word_embed_size + time_embed_size,
             config.enc_hidden_size,
             config.pad_idx,
@@ -115,7 +119,10 @@ class LSTMSeq2SeqModel(nn.Module):
         self.device = config.device
         self.n_actions = config.n_actions
 
-    def init(self, batch_size, src, src_mask=None):
+    def init(self, src, src_mask=None, reset_indices=None):
+
+        """
+        batch_size = src.shape[0]
 
         src_embed = self.embedding(src)
 
@@ -129,14 +136,38 @@ class LSTMSeq2SeqModel(nn.Module):
         self.context, last_enc_h, last_enc_c = self.encoder(src_input)
 
         last_enc_h = self.enc2dec(last_enc_h)
+        """
 
-        self.decoder.init_state(batch_size, h0=(last_enc_h, last_enc_c))
+        """
+        self.src_mask = src_mask
+        """
+
+        batch_size = src.shape[0]
+
+        time_tensor = torch.tensor([ list(range(src.size(1)))
+            for _ in range(batch_size) ]).to(self.device)
+        time_embed = self.src_time_embedding(time_tensor)
+        src_embed = self.embedding(src)
+        src_input = torch.cat([src_embed, time_embed], dim=2)
+        self.context, last_enc_h, last_enc_c = self.encoder(src_input)
         self.src_mask = src_mask
 
-    def decode(self, obs, timestep=None):
+        last_enc_h = self.enc2dec(last_enc_h)
+        h0 = (last_enc_h, last_enc_c)
+        self.decoder.init_state(h0, reset_indices=reset_indices)
 
-        time_embed = self.tgt_time_embedding(timestep)
+        if reset_indices is None:
+            self.time = torch.zeros(batch_size).long().to(self.device)
+        else:
+            for idx in reset_indices:
+                self.time[idx] = 0
 
+    def advance_time(self):
+        self.time = self.time + 1
+
+    def decode(self, obs):
+
+        time_embed = self.tgt_time_embedding(self.time)
         dec_input = torch.cat([obs, time_embed], dim=1)
 
         dec_output = self.decoder(dec_input)
@@ -148,5 +179,19 @@ class LSTMSeq2SeqModel(nn.Module):
 
         return logit
 
-    def encode(self, seq):
-        return self.encoder(seq)
+    """
+    def encode(self, src, src_mask=None):
+        batch_size = src.shape[0]
+        time_tensor = torch.tensor([ list(range(src.size(1)))
+            for _ in range(batch_size) ]).to(self.device)
+        time_embed = self.src_time_embedding(time_tensor)
+        src_embed = self.embedding(src)
+        src_input = torch.cat([src_embed, time_embed], dim=2)
+        self.context, last_enc_h, last_enc_c = self.encoder(src_input)
+        self.src_mask = src_mask
+
+        last_enc_h = self.enc2dec(last_enc_h)
+        h0 = (last_enc_h, last_enc_c)
+        self.decoder.init_state(h0, indices=self.indices)
+    """
+

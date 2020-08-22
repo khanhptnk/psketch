@@ -11,7 +11,7 @@ student:
     word_embed_size: 128
     dropout_ratio: .0
     learning_rate: .001
-  uncertainty_threshold: 0.2
+  uncertainty_threshold: 0.3
 teacher:
   name: InteractivePrimitiveLanguageTeacher
 trainer: 

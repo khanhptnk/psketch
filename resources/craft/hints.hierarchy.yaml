@@ -1,19 +1,19 @@
-"left[none]":
+"left[]":
   []
 
-"right[none]":
+"right[]":
   []
 
-"up[none]":
+"up[]":
   []
 
-"down[none]":
+"down[]":
   []
 
-"use[none]":
+"use[]":
   []
 
-"stop[none]":
+"stop[]":
   []
 
 "go[wood]":
@@ -35,22 +35,22 @@
   []
 
 "get[wood]":
-  ["go[wood]", "use[none]"]
+  ["go[wood]", "use[]"]
 
 "get[grass]":
-  ["go[grass]", "use[none]"]
+  ["go[grass]", "use[]"]
  
 "get[iron]":
-  ["go[iron]", "use[none]"]
+  ["go[iron]", "use[]"]
 
 "makeat[workshop0]":
-  ["go[workshop0]", "use[none]"]
+  ["go[workshop0]", "use[]"]
 
 "makeat[workshop1]":
-  ["go[workshop1]", "use[none]"]
+  ["go[workshop1]", "use[]"]
 
 "makeat[workshop2]":
-  ["go[workshop2]", "use[none]"]
+  ["go[workshop2]", "use[]"]
  
 "make[plank]":
   ["get[wood]", "makeat[workshop0]"]

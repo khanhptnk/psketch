@@ -41,9 +41,10 @@ class TaskManager(object):
         self.tasks_by_goal = {}
         self.tasks = util.Index()
         for goal, subgoals in self.hints.items():
-            subtasks = [self.tasks_by_goal[subgoal] for subgoal in subgoals]
+            subtasks = [self.tasks_by_goal[' '.join(util.parse_fexp(subgoal))]
+                for subgoal in subgoals]
             task = Task(goal, subtasks)
-            self.tasks_by_goal[goal] = task
+            self.tasks_by_goal[str(task)] = task
             self.tasks.index(task)
 
         # make vocab
@@ -61,6 +62,7 @@ class TaskManager(object):
         #config.student.model.pad_idx = self.vocab['<PAD>']
         #config.student.model.vocab_size = len(self.vocab)
         config.vocab = self.vocab
+        config.task_manager = self
 
     def encode_task(self, task):
         return [self.vocab[task.goal_name], self.vocab[task.goal_arg]]
@@ -73,3 +75,4 @@ class TaskManager(object):
 
     def __getitem__(self, goal):
         return self.tasks_by_goal[goal]
+

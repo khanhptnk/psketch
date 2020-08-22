@@ -178,6 +178,8 @@ class ImitationTrainer(object):
 
     def evaluate(self, dataset, world, student, teacher, save_traj=False):
 
+        student.prepare(world)
+
         eval_info = {}
         total_success = (0, 0)
         total_distance = (0, 0)

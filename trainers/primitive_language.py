@@ -72,6 +72,7 @@ class PrimitiveLanguageTrainer(ImitationTrainer):
                     world, action_seqs[i], state_seqs[i])
                 descriptions.append(description)
             print(action_seqs[0], descriptions[0])
+            num_interactions += sum([len(descr) for descr in descriptions])
             student.receive(descriptions)
 
             # Decode the second time. This time without exploration

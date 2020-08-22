@@ -1,7 +1,7 @@
 from .demonstration import DemonstrationTeacher
 from .primitive_language import PrimitiveLanguageTeacher
 from .interactive_primitive_language import InteractivePrimitiveLanguageTeacher
-
+from .abstract_language import AbstractLanguageTeacher
 
 def load(config):
     cls_name = config.teacher.name

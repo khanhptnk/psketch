@@ -1,12 +1,8 @@
-#from .reflex import ReflexModel
-#from .attentive import AttentiveModel
-#from .modular import ModularModel
-#from .modular_ac import ModularACModel
-#from .keyboard import KeyboardModel
 from .imitation import ImitationStudent
 from .primitive_language import PrimitiveLanguageStudent
 from .interactive_primitive_language import InteractivePrimitiveLanguageStudent
 from .active_primitive_language import ActivePrimitiveLanguageStudent
+from .abstract_language import AbstractLanguageStudent
 
 
 def load(config):
