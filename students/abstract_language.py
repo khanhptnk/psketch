@@ -139,7 +139,8 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             entropies = action_dists.entropy() / math.log(self.n_actions)
             ask_actions = (entropies > self.uncertainty_threshold).long()
 
-            #print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
+            if debug_idx != -1 and instructions[debug_idx] != ['<PAD>']:
+                print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
 
             #print(actions[0])
 
