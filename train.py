@@ -35,9 +35,13 @@ def configure():
 
     config.command_line = 'python -u ' + ' '.join(sys.argv)
 
-    config.experiment_dir = os.path.join("experiments/%s" % config.name)
+    config.data_dir = os.getenv('PT_DATA_DIR', 'data')
+
+    output_dir = os.getenv('PT_OUTPUT_DIR', 'experiments')
+    config.experiment_dir = os.path.join(output_dir + ("/%s" % config.name))
+
     assert not os.path.exists(config.experiment_dir), \
-            "Experiment %s already exists!" % config.experiment_dir
+        "Experiment %s already exists!" % config.experiment_dir
     os.mkdir(config.experiment_dir)
 
     torch.manual_seed(config.seed)

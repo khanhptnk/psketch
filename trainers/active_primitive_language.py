@@ -27,8 +27,8 @@ class ActivePrimitiveLanguageTrainer(InteractivePrimitiveLanguageTrainer):
         student.init(init_states)
         student.set_tasks(tasks, is_eval=is_eval)
 
-        init_states[0].render()
-        print(batch[0]['ref_actions'])
+        #init_states[0].render()
+        #print(batch[0]['ref_actions'])
 
         states = init_states[:]
         timer = [self.config.trainer.max_timesteps] * batch_size
@@ -90,9 +90,9 @@ class ActivePrimitiveLanguageTrainer(InteractivePrimitiveLanguageTrainer):
             student.set_tasks(tasks, is_eval)
             student.imitate_instructed()
 
-        print(action_seqs[0])
-        print(ask_action_seqs[0])
-        print()
+        #print(action_seqs[0])
+        #print(ask_action_seqs[0])
+        #print()
 
         success = []
         distances = []
