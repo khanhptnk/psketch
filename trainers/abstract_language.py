@@ -27,7 +27,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
         student.init(init_states, tasks, is_eval)
         student.interpreter_reset_at_index = [True] * batch_size
 
-        debug_idx = -1
+        debug_idx = 0
         if debug_idx != -1:
             init_states[debug_idx].render()
 
@@ -57,8 +57,9 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
                 if self.config.trainer.test_interpreter:
                     instructions = [str(task).split() for task in tasks]
-                    env_actions = student.interpret(states, instructions)
-                    student.interpreter_reset_at_index = [False] * batch_size
+                    env_actions = student.interpret(states, instructions, debug_idx=debug_idx)
+                    student.interpreter_reset_at_index = [0] * batch_size
+                    print('reset', student.interpreter_reset_at_index[debug_idx])
                 else:
                     env_actions = student.act(states)
 
@@ -231,7 +232,6 @@ class AbstractLanguageTrainer(ImitationTrainer):
                             env_actions[i] = actions[i]
 
             student.advance_interpreter_state()
-
 
             for i in range(batch_size):
 

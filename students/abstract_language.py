@@ -89,6 +89,9 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         self.interpreter_data = []
         self.student_data = []
 
+        self.next_interpreter_h = None
+        self.next_interpreter_t = None
+
         if is_eval:
             self.interpreter_model.eval()
             self.student_model.eval()
@@ -132,9 +135,10 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         action_logits, self.next_interpreter_h, self.next_interpreter_t = \
             self.interpreter_model.decode(
                 state_features, self.interpreter_h, self.interpreter_t)
+        action_dists = D.Categorical(logits=action_logits)
+
 
         if self.interpreter_model.training:
-            action_dists = D.Categorical(logits=action_logits)
             actions = action_dists.sample()
             entropies = action_dists.entropy() / math.log(self.n_actions)
             ask_actions = (entropies > self.uncertainty_threshold).long()
@@ -151,7 +155,13 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
 
             return actions.tolist(), ask_actions.tolist()
 
+
         actions = action_logits.max(dim=1)[1]
+
+        if debug_idx != -1 and instructions[debug_idx] != ['<PAD>']:
+            print(instructions[debug_idx], action_dists.probs[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
+
+
         return actions.tolist()
 
     def advance_interpreter_state(self):
