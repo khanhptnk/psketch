@@ -25,8 +25,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
             init_states.append(world.init_state(item['grid'], item['init_pos']))
 
         student.init(init_states, tasks, is_eval)
-        student.interpreter_reset_indices = [True] * batch_size
-
+        student.interpreter_reset_at_index = [True] * batch_size
 
         debug_idx = 8
         init_states[debug_idx].render()
@@ -62,7 +61,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
                 """
                 #instructions = [str(task).split() for task in tasks]
                 #env_actions = student.interpret(states, instructions)
-                #student.interpreter_reset_indices = [False] * batch_size
+                #student.interpreter_reset_at_index = [False] * batch_size
             else:
                 asked_with_instructions = [set() for _ in range(batch_size)]
                 env_actions = [student.STOP if done[i] else None
@@ -90,6 +89,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
                         if env_actions[i] is None and instr in asked_with_instructions[i]:
                             ask_actions[i] = 0
 
+                    """
                     if self.config.sanity_check_1:
                         actions = [teacher(tasks[i], states[i]) for i in range(batch_size)]
                         ask_actions = [0] * batch_size
@@ -109,14 +109,13 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                     instructions[i], starts[i] = stacks[i][-1]
                                 except IndexError:
                                     pass
+                    """
 
                     #print(stacks[0], env_actions[0], actions[0], ask_actions[0])
 
                     print('ask', ask_actions[debug_idx], actions[debug_idx], env_actions[debug_idx])
 
-                    should_reset = [False] * batch_size
-
-                    student.interpreter_reset_indices = [False] * batch_size
+                    student.interpreter_reset_at_index = [False] * batch_size
 
                     for i in range(batch_size):
 
@@ -153,12 +152,6 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                     description_memory[i][time_range] = descr
 
                                 # Add to data for training interpreter
-                                """
-                                if i == 0:
-                                    traj[0][0].render()
-                                    traj[0][-1].render()
-                                    print(time_range, traj[1], descr)
-                                """
                                 if descr is not None:
                                     if i == debug_idx and not done[i]:
                                         state_seq, action_seq = traj
@@ -183,21 +176,21 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                 print('ASKed and receive instruction', instr)
 
                             if instr is None:
-                                student.interpreter_reset_indices[i] = True
-                                should_reset[i] = True
+                                """
+                                student.interpreter_reset_at_index[i] = True
                                 # Teacher can't help
                                 # Try asking with a higher-level instruction
                                 stacks[i].pop()
                                 if not stacks[i]:
                                     env_actions[i] = student.STOP
+                                """
+                                pass
                             else:
-                                student.interpreter_reset_indices[i] = True
-                                should_reset[i] = True
+                                student.interpreter_reset_at_index[i] = True
                                 # Defer current instruction, follow new instruction
                                 stacks[i].append((instr, t))
                         elif actions[i] == student.STOP:
-                            student.interpreter_reset_indices[i] = True
-                            should_reset[i] = True
+                            student.interpreter_reset_at_index[i] = True
                             # Stop executing current instruction
                             stacks[i].pop()
 
@@ -229,34 +222,11 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                 if i == debug_idx and not done[i]:
                                     print('+++ STOPped and add description', [item[0] for item in descr])
                                 student.add_interpreter_data(descr, traj)
-
-
-
-                            """
-                            time_range = (starts[i], t)
-                            traj = student.slice_trajectory(i, *time_range)
-                            if time_range in description_memory[i]:
-                                descr = description_memory[i][time_range]
-                            else:
-                                descr = teacher.describe(*traj)
-                                description_memory[i][time_range] = descr
-
-                            if descr is not None:
-                                student.add_interpreter_data(descr, traj)
-                            if descr == instructions[i]:
-                                student.add_student_data(descr, traj)
-                            """
                         else:
                             env_actions[i] = actions[i]
 
-                    """
-                    reset_indices = [i for i in range(batch_size)
-                        if should_reset[i]]
-                    if reset_indices:
-                        student.reset_interpreter(reset_indices)
-                    """
+            student.advance_interpreter_state()
 
-            student.advance_time()
 
             for i in range(batch_size):
 

@@ -53,26 +53,29 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         self.STOP = world.actions.STOP.index
         self.n_actions = world.n_actions
 
-    def set_instructions(self, model, instructions, reset_indices=None):
+    """
+    def set_instructions(self, model, instructions):
 
         instruction_encodings, instruction_mask = \
             self._encode_and_pad(instructions)
-        model.init(instruction_encodings, src_mask=instruction_mask,
-            reset_indices=reset_indices)
-
-    """
-    def reset_interpreter(self, indices):
-        self.interpreter_model.init(indices=indices)
-    """
+        model.init(instruction_encodings, src_mask=instruction_mask)
 
     def advance_time(self):
         if self.interpreter_model.training:
             self.interpreter_model.advance_time()
         else:
             self.student_model.advance_time()
+    """
 
     def terminate(self, i):
         self.terminated[i] = True
+
+    def init_model(self, model, instructions):
+        instruction_encodings, instruction_masks = \
+            self._encode_and_pad(instructions)
+        init_h = model.encode(instruction_encodings, src_mask=instruction_masks)
+        init_t = self._to_tensor([0] * len(instructions)).long()
+        return init_h, init_t
 
     def init(self, states, tasks, is_eval):
 
@@ -86,23 +89,21 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         self.interpreter_data = []
         self.student_data = []
 
-
         if is_eval:
-            self.interpreter_model.eval()
             self.student_model.eval()
-            task_encodings = [task.encoding for task in tasks]
-            task_encodings = self._to_tensor(task_encodings).long()
-            self.student_model.init(task_encodings)
+            tasks = [str(task).split() for task in tasks]
+            self.student_h, self.student_t = self.init_model(self.student_model, tasks)
         else:
-            self.interpreter_model.train()
             self.student_model.train()
-            self.instructions = [None] * self.batch_size
+            self.interpreter_model.train()
 
     def act(self, states):
         state_features = [state.features() for state in states]
         state_features = self._to_tensor(state_features).float()
 
-        action_logits = self.student_model.decode(state_features)
+        action_logits, self.student_h, self.student_t = \
+            self.student_model.decode(
+                state_features, self.student_h, self.student_t)
 
         if self.student_model.training:
             actions = D.Categorical(logits=action_logits).sample()
@@ -113,18 +114,23 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
 
     def interpret(self, states, instructions, debug_idx=0):
 
-        reset_indices = [i for i in range(self.batch_size)
-            if self.interpreter_reset_indices[i]]
-        if len(reset_indices) == self.batch_size:
-            reset_indices = None
+        h, t = self.init_model(self.interpreter_model, instructions)
 
-        self.set_instructions(self.interpreter_model, instructions,
-            reset_indices=reset_indices)
+        if all(self.interpreter_reset_at_index):
+            self.interpreter_h, self.interpreter_t = h, t
+        else:
+            for i in range(self.batch_size):
+                if self.interpreter_reset_at_index[i]:
+                    self.interpreter_t[i] = t[i]
+                    for j in range(2):
+                        self.interpreter_h[j][:, i, :] = h[j][:, i, :]
 
         state_features = [state.features() for state in states]
         state_features = self._to_tensor(state_features).float()
 
-        action_logits = self.interpreter_model.decode(state_features)
+        action_logits, self.next_interpreter_h, self.next_interpreter_t = \
+            self.interpreter_model.decode(
+                state_features, self.interpreter_h, self.interpreter_t)
 
         if self.interpreter_model.training:
             action_dists = D.Categorical(logits=action_logits)
@@ -132,7 +138,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             entropies = action_dists.entropy() / math.log(self.n_actions)
             ask_actions = (entropies > self.uncertainty_threshold).long()
 
-            print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx], actions.tolist()[debug_idx], self.interpreter_model.time.tolist()[debug_idx])
+            print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
 
             #print(actions[0])
 
@@ -145,6 +151,10 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
 
         actions = action_logits.max(dim=1)[1]
         return actions.tolist()
+
+    def advance_interpreter_state(self):
+        self.interpreter_h = self.next_interpreter_h
+        self.interpreter_t = self.next_interpreter_t
 
     def add_interpreter_data(self, description, trajectory):
         #self.interpreter_data.append((description, trajectory))
@@ -223,7 +233,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             loss_weights = self._to_tensor(loss_weights).float()
             #print('loss weights', loss_weights.shape)
 
-            self.set_instructions(model, instructions)
+            h, t = self.init_model(model, instructions)
 
             loss = 0
             seq_len = action_seqs.shape[0]
@@ -235,8 +245,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
                 states = [state_seq[i] for state_seq in state_seqs]
                 state_features = [state.features() for state in states]
                 state_features = self._to_tensor(state_features).float()
-                logits = model.decode(state_features)
-                model.advance_time()
+                logits, h, t = model.decode(state_features, h, t)
 
                 losses = self.loss_fn(logits, targets)
                 valid_targets = (targets != -1)
@@ -253,7 +262,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             instructions.append(instr)
         counter = Counter(instructions)
         for instr in counter:
-            weights[instr] = 1 #/ (counter[instr]**0.5)
+            weights[instr] = 1 / counter[instr]
         return weights
 
     def _filter_data(self, data):

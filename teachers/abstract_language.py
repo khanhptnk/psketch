@@ -37,6 +37,24 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
         assert action == world.actions.STOP.index
         return 'stop'
 
+    def find_next_subtask(self, task, state, debug=False):
+
+        if state.satisfies(task):
+            return None
+
+        if task.subtasks is None:
+            return task
+
+        for subtask in task.subtasks[:-1]:
+            next_subtask = self.find_next_subtask(subtask, state)
+            if next_subtask is not None:
+                return subtask
+
+        last_subtask = task.subtasks[-1]
+        next_subtask = self.find_next_subtask(last_subtask, state)
+        assert next_subtask is not None
+        return last_subtask
+
     def instruct(self, instruction, state, debug=False):
 
         all_primitives = True

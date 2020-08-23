@@ -48,30 +48,22 @@ class DecoderLSTM(nn.Module):
             device)
         self.device = device
 
+    """
     def init_state(self, h0, reset_indices=None):
-        """
-        if h0 is None:
-            self.h = self.lstm.init_state(batch_size)
-        else:
-            self.h = h0
-        """
         if reset_indices is None:
-            #self.h = self.lstm.init_state(batch_size)
             self.h = h0
         else:
-            #h0 = self.lstm.init_state(len(indices))
             for idx in reset_indices:
-                #self.h[0][:, idx, :] = 0 #h0[0][:, i, :]
-                #self.h[1][:, idx, :] = 0 #h0[1][:, i, :]
                 self.h[0][:, idx, :] = h0[0][:, idx, :]
                 self.h[1][:, idx, :] = h0[1][:, idx, :]
+    """
 
-    def forward(self, input):
+    def forward(self, input, h):
         input_drop = self.drop(input)
-        output, self.h = self.lstm(input_drop.unsqueeze(0), self.h)
+        output, new_h = self.lstm(input_drop.unsqueeze(0), h)
         output = self.drop(output.squeeze(0))
 
-        return output
+        return output, new_h
 
 
 class LSTMSeq2SeqModel(nn.Module):
@@ -119,28 +111,8 @@ class LSTMSeq2SeqModel(nn.Module):
         self.device = config.device
         self.n_actions = config.n_actions
 
+    """
     def init(self, src, src_mask=None, reset_indices=None):
-
-        """
-        batch_size = src.shape[0]
-
-        src_embed = self.embedding(src)
-
-        time_tensor = torch.tensor(
-            [ list(range(src.size(1))) for _ in range(batch_size) ],
-            device=self.device)
-        time_embed = self.src_time_embedding(time_tensor)
-
-        src_input = torch.cat([src_embed, time_embed], dim=2)
-
-        self.context, last_enc_h, last_enc_c = self.encoder(src_input)
-
-        last_enc_h = self.enc2dec(last_enc_h)
-        """
-
-        """
-        self.src_mask = src_mask
-        """
 
         batch_size = src.shape[0]
 
@@ -151,37 +123,23 @@ class LSTMSeq2SeqModel(nn.Module):
         src_input = torch.cat([src_embed, time_embed], dim=2)
         self.context, last_enc_h, last_enc_c = self.encoder(src_input)
         self.src_mask = src_mask
-
         last_enc_h = self.enc2dec(last_enc_h)
-        h0 = (last_enc_h, last_enc_c)
-        self.decoder.init_state(h0, reset_indices=reset_indices)
+        last_enc_state = (last_enc_h, last_enc_c)
 
         if reset_indices is None:
             self.time = torch.zeros(batch_size).long().to(self.device)
+            self.dec_h = last_enc_state
         else:
             for idx in reset_indices:
                 self.time[idx] = 0
-
-    def advance_time(self):
-        self.time = self.time + 1
-
-    def decode(self, obs):
-
-        time_embed = self.tgt_time_embedding(self.time)
-        dec_input = torch.cat([obs, time_embed], dim=1)
-
-        dec_output = self.decoder(dec_input)
-        attended_context, _ = self.attention(
-            dec_output, self.context, mask=self.src_mask)
-
-        feature = torch.cat([dec_output, attended_context], dim=1)
-        logit = self.predictor(feature)
-
-        return logit
-
+                for i in range(2):
+                    self.dec_h[i][:, idx, :] = last_enc_state[i][:, idx, :]
     """
+
     def encode(self, src, src_mask=None):
+
         batch_size = src.shape[0]
+
         time_tensor = torch.tensor([ list(range(src.size(1)))
             for _ in range(batch_size) ]).to(self.device)
         time_embed = self.src_time_embedding(time_tensor)
@@ -189,9 +147,24 @@ class LSTMSeq2SeqModel(nn.Module):
         src_input = torch.cat([src_embed, time_embed], dim=2)
         self.context, last_enc_h, last_enc_c = self.encoder(src_input)
         self.src_mask = src_mask
-
         last_enc_h = self.enc2dec(last_enc_h)
-        h0 = (last_enc_h, last_enc_c)
-        self.decoder.init_state(h0, indices=self.indices)
-    """
+        last_enc_state = (last_enc_h, last_enc_c)
+
+        return last_enc_state
+
+    def decode(self, obs, h, time):
+
+        time_embed = self.tgt_time_embedding(time)
+        input = torch.cat([obs, time_embed], dim=1)
+
+        output, new_h = self.decoder(input, h)
+
+        attended_context, _ = self.attention(
+            output, self.context, mask=self.src_mask)
+
+        feature = torch.cat([output, attended_context], dim=1)
+        logit = self.predictor(feature)
+
+        return logit, new_h, time + 1
+
 
