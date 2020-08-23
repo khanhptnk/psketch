@@ -3,6 +3,7 @@ recipes: "resources/craft/recipes.yaml"
 world:
   name: CraftWorld
   config: "craft_medium"
+  feature_dup: 1
 student:
   name: AbstractLanguageStudent
   model: 

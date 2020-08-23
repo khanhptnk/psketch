@@ -31,6 +31,7 @@ def make_config():
 
     parser.add_argument('-world.name', type=str)
     parser.add_argument('-world.config', type=str)
+    parser.add_argument('-world.feature_dup', type=int)
 
     parser.add_argument('-student.name', type=str)
     parser.add_argument('-student.uncertainty_threshold', type=float)

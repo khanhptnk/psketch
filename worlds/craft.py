@@ -31,8 +31,6 @@ STOP = 5
 N_ACTIONS = STOP + 1
 
 
-FEATURE_DUP = 4
-
 icons = { 'boundary':  '◼️ ',
           'free':      '◻️ ',
           'workshop0': '🏠',
@@ -68,12 +66,13 @@ class CraftWorld(object):
             for k, v in world_config.items():
                 setattr(self, k, v)
 
+        self.feature_dup = config.world.feature_dup
         self.n_features = config.student.model.input_size = \
                 2 * self.WINDOW_WIDTH * \
                     self.WINDOW_HEIGHT * \
                     self.cookbook.n_kinds + \
-                self.cookbook.n_kinds * FEATURE_DUP + \
-                4 * FEATURE_DUP + \
+                self.cookbook.n_kinds * self.feature_dup + \
+                4 * self.feature_dup + \
                 1
         self.n_actions = config.student.model.n_actions = N_ACTIONS
         self.actions = util.Struct(**{
@@ -323,8 +322,8 @@ class CraftState(object):
             dir_features = np.zeros(4)
             dir_features[self.dir] = 1
 
-            inventory_features = np.tile(self.inventory, FEATURE_DUP)
-            dir_features = np.tile(dir_features, FEATURE_DUP)
+            inventory_features = np.tile(self.inventory, self.world.feature_dup)
+            dir_features = np.tile(dir_features, self.world.feature_dup)
 
             features = np.concatenate((grid_feats.ravel(),
                     grid_feats_big_red.ravel(), inventory_features,
