@@ -28,7 +28,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
         student.interpreter_reset_at_index = [True] * batch_size
 
         debug_idx = 8
-        init_states[debug_idx].render()
+        #init_states[debug_idx].render()
 
         states = init_states[:]
         timer = [self.config.trainer.max_timesteps] * batch_size
@@ -53,15 +53,18 @@ class AbstractLanguageTrainer(ImitationTrainer):
             #print(stacks[0])
 
             if is_eval:
-                env_actions = student.act(states)
+
+                if self.config.trainer.test_interpreter:
+                    instructions = [str(task).split() for task in tasks]
+                    env_actions = student.interpret(states, instructions)
+                    student.interpreter_reset_at_index = [False] * batch_size
+                else:
+                    env_actions = student.act(states)
 
                 """
                 if self.config.sanity_check_1 or self.config.sanity_check_2:
                     env_actions = [teacher(tasks[i], states[i]) for i in range(batch_size)]
                 """
-                #instructions = [str(task).split() for task in tasks]
-                #env_actions = student.interpret(states, instructions)
-                #student.interpreter_reset_at_index = [False] * batch_size
             else:
                 asked_with_instructions = [set() for _ in range(batch_size)]
                 env_actions = [student.STOP if done[i] else None
@@ -83,7 +86,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
                     actions, ask_actions = student.interpret(
                         states, instructions, debug_idx=debug_idx)
 
-                    print(asked_with_instructions[debug_idx])
+                    #print(asked_with_instructions[debug_idx])
                     for i in range(batch_size):
                         instr = ' '.join(instructions[i])
                         if env_actions[i] is None and instr in asked_with_instructions[i]:
@@ -113,7 +116,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
                     #print(stacks[0], env_actions[0], actions[0], ask_actions[0])
 
-                    print('ask', ask_actions[debug_idx], actions[debug_idx], env_actions[debug_idx])
+                    #print('ask', ask_actions[debug_idx], actions[debug_idx], env_actions[debug_idx])
 
                     student.interpreter_reset_at_index = [False] * batch_size
 
@@ -131,11 +134,11 @@ class AbstractLanguageTrainer(ImitationTrainer):
                         # Student asks
                         if ask_actions[i] == student.ASK:
 
-                            if i == debug_idx:
-                                print(' '.join(instructions[i]))
+                            #if i == debug_idx:
+                                #print(' '.join(instructions[i]))
 
-                            if i == debug_idx and not done[i]:
-                                print('=== ASK at', states[i].pos, 'with instruction', instructions[i])
+                            #if i == debug_idx and not done[i]:
+                                #print('=== ASK at', states[i].pos, 'with instruction', instructions[i])
 
 
                             asked_with_instructions[i].add(' '.join(instructions[i]))
@@ -160,20 +163,20 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                         state_seq[-1].render()
                                         """
                                         #print('+++ ASKed and add description', [item[0] for item in descr])
-                                        print('+++ ASKed and add description')
-                                        for item in descr:
-                                            print(item[0], item[1][1])
-                                            item[1][0][0].render()
-                                            item[1][0][-1].render()
-                                            print('------------------------')
-                                        print('Action seq', action_seq)
+                                        #print('+++ ASKed and add description')
+                                        #for item in descr:
+                                            #print(item[0], item[1][1])
+                                            #item[1][0][0].render()
+                                            #item[1][0][-1].render()
+                                            #print('------------------------')
+                                        #print('Action seq', action_seq)
                                     student.add_interpreter_data(descr, traj)
 
                             # Request teacher a new instruction
                             instr = teacher.instruct(instructions[i], states[i], debug=i==debug_idx)
 
-                            if i == debug_idx and not done[i]:
-                                print('ASKed and receive instruction', instr)
+                            #if i == debug_idx and not done[i]:
+                                #print('ASKed and receive instruction', instr)
 
                             if instr is None:
                                 """
@@ -204,8 +207,8 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                 state_seq, action_seq = traj
                                 state_seq.append(state_seq[-1])
                                 action_seq.append(student.STOP)
-                                if i == debug_idx and not done[i]:
-                                    print('===>', instructions[i])
+                                #if i == debug_idx and not done[i]:
+                                    #print('===>', instructions[i])
 
                                 #print(instructions[i])
 
@@ -219,8 +222,8 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                     description_memory[i][time_range] = descr
 
                             if descr is not None:
-                                if i == debug_idx and not done[i]:
-                                    print('+++ STOPped and add description', [item[0] for item in descr])
+                                #if i == debug_idx and not done[i]:
+                                    #print('+++ STOPped and add description', [item[0] for item in descr])
                                 student.add_interpreter_data(descr, traj)
                         else:
                             env_actions[i] = actions[i]
@@ -236,8 +239,8 @@ class AbstractLanguageTrainer(ImitationTrainer):
                     student.append_trajectory(i, env_actions[i], states[i])
                     num_steps += (not is_eval)
 
-            print('ENV:', env_actions[debug_idx])
-            states[debug_idx].render()
+            #print('ENV:', env_actions[debug_idx])
+            #states[debug_idx].render()
 
             for i in range(batch_size):
                 timer[i] -= 1
@@ -251,10 +254,10 @@ class AbstractLanguageTrainer(ImitationTrainer):
         if not is_eval:
             student.process_data()
 
-        print(str(tasks[debug_idx]))
-        print(batch[debug_idx]['ref_actions'])
-        print(action_seqs[debug_idx])
-        print()
+        #print(str(tasks[debug_idx]))
+        #print(batch[debug_idx]['ref_actions'])
+        #print(action_seqs[debug_idx])
+        #print()
 
         success = []
         distances = []

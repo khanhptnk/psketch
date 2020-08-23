@@ -118,8 +118,8 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
                 task_names.append(str(task))
             else:
                 task = self.task_map[item_name]['make']
-                assert task is not None
-                task_names.append(str(task))
+                if task is not None:
+                    task_names.append(str(task))
 
         # Check go tasks
         if not inventory_diff.any():
@@ -127,7 +127,7 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
             item_name = state_seq[-1].get_item_name_at(neighbor_pos)
             if item_name is not None:
                 task = self.task_map[item_name]['go']
-                assert task is not None
+                assert task is not None, item_name
                 task_names.append(str(task))
 
         # Check primitive actions

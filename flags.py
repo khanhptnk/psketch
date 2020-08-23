@@ -41,6 +41,8 @@ def make_config():
     parser.add_argument('-student.model.learning_rate', type=float)
     parser.add_argument('-student.model.load_from', type=str)
     parser.add_argument('-student.model.num_layers', type=int)
+    parser.add_argument('-student.model.no_time', type=int)
+    parser.add_argument('-student.reweight_data', type=int)
 
     parser.add_argument('-teacher.name', type=str)
 
@@ -52,6 +54,7 @@ def make_config():
     parser.add_argument('-trainer.batch_size', type=int)
     parser.add_argument('-trainer.policy_mix.init_rate', type=float)
     parser.add_argument('-trainer.policy_mix.decay_every', type=int)
+    parser.add_argument('-trainer.test_interpreter', type=int)
 
     parser.add_argument('-sanity_check_1', type=int, default=0)
     parser.add_argument('-sanity_check_2', type=int, default=0)

@@ -90,6 +90,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         self.student_data = []
 
         if is_eval:
+            self.interpreter_model.eval()
             self.student_model.eval()
             tasks = [str(task).split() for task in tasks]
             self.student_h, self.student_t = self.init_model(self.student_model, tasks)
@@ -138,7 +139,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             entropies = action_dists.entropy() / math.log(self.n_actions)
             ask_actions = (entropies > self.uncertainty_threshold).long()
 
-            print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
+            #print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
 
             #print(actions[0])
 
@@ -255,6 +256,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             yield loss, seq_len
 
     def _compute_weights(self, data):
+
         weights = {}
         instructions = []
         for item in data:
@@ -262,7 +264,10 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             instructions.append(instr)
         counter = Counter(instructions)
         for instr in counter:
-            weights[instr] = 1 / counter[instr]
+            if self.config.student.reweight_data:
+                weights[instr] = 1 / counter[instr]
+            else:
+                weights[instr] = 1
         return weights
 
     def _filter_data(self, data):
@@ -278,13 +283,13 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
 
     def process_data(self):
 
-        for item in self.student_data:
-            print('--------', item[0])
-        if self.student_data:
-            item = self.student_data[-1]
-            item[1][0][0].render()
-            item[1][0][-1].render()
-            print(item[0], item[1][1])
+        #for item in self.student_data:
+            #print('--------', item[0])
+        #if self.student_data:
+            #item = self.student_data[-1]
+            #item[1][0][0].render()
+            #item[1][0][-1].render()
+            #print(item[0], item[1][1])
 
         self.interpreter_data = self._filter_data(self.interpreter_data)
         self.student_data = self._filter_data(self.student_data)

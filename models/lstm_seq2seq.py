@@ -81,8 +81,12 @@ class LSTMSeq2SeqModel(nn.Module):
             config.dropout_ratio,
             config.device)
 
+        dec_input_size = config.input_size
+        if not config.no_time:
+            dec_input_size += time_embed_size
+
         self.decoder = DecoderLSTM(
-            config.input_size + time_embed_size,
+            dec_input_size,
             config.dec_hidden_size,
             config.dropout_ratio,
             config.device)
@@ -106,7 +110,10 @@ class LSTMSeq2SeqModel(nn.Module):
                 config.word_embed_size,
                 config.pad_idx)
         self.src_time_embedding = nn.Embedding(100, time_embed_size)
-        self.tgt_time_embedding = nn.Embedding(100, time_embed_size)
+
+        self.no_time = config.no_time
+        if not self.no_time:
+            self.tgt_time_embedding = nn.Embedding(100, time_embed_size)
 
         self.device = config.device
         self.n_actions = config.n_actions
@@ -154,8 +161,11 @@ class LSTMSeq2SeqModel(nn.Module):
 
     def decode(self, obs, h, time):
 
-        time_embed = self.tgt_time_embedding(time)
-        input = torch.cat([obs, time_embed], dim=1)
+        if not self.no_time:
+            time_embed = self.tgt_time_embedding(time)
+            input = torch.cat([obs, time_embed], dim=1)
+        else:
+            input = obs
 
         output, new_h = self.decoder(input, h)
 
