@@ -249,7 +249,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
                     num_steps += (not is_eval)
 
             if debug_idx != -1 and not done[debug_idx]:
-                print('ENV:', env_actions[debug_idx], '%.2f' % env_action_probs[debug_idx])
+                print('ENV:', env_actions[debug_idx])
                 states[debug_idx].render()
 
             for i in range(batch_size):
