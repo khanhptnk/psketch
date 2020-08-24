@@ -294,7 +294,8 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             i = j
         return batched_data
 
-    def _compute_loss(self, data, model, weights):
+    def _compute_loss(self, data, model, weights,
+            weight_target_by_uncertainty=False):
 
         for instructions, state_seqs, action_seqs, action_prob_seqs in data:
 
@@ -321,7 +322,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
                 valid_targets = (targets != -1)
                 losses = losses * loss_weights * valid_targets
 
-                if self.config.student.weight_target_by_uncertainty:
+                if weight_target_by_uncertainty:
                     losses = losses * target_probs
 
                 loss += losses.sum() / valid_targets.sum()
@@ -368,9 +369,11 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
     def learn(self):
 
         i_loss_generator = self._compute_loss(self.interpreter_data,
-            self.interpreter_model, self.interpreter_weights)
+            self.interpreter_model, self.interpreter_weights,
+            weight_target_by_uncertainty=self.config.student.weight_interpreter_target_by_uncertainty)
         s_loss_generator = self._compute_loss(self.student_data,
-            self.student_model, self.student_weights)
+            self.student_model, self.student_weights,
+            weight_target_by_uncertainty=self.config.student.weight_student_target_by_uncertainty)
 
         total_i_loss = []
         for i_loss, i_len in i_loss_generator:

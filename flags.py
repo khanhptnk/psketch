@@ -44,7 +44,8 @@ def make_config():
     parser.add_argument('-student.model.num_layers', type=int)
     parser.add_argument('-student.model.no_time', type=int)
     parser.add_argument('-student.reweight_data', type=int)
-    parser.add_argument('-student.weight_target_by_uncertainty', type=int)
+    parser.add_argument('-student.weight_student_target_by_uncertainty', type=int)
+    parser.add_argument('-student.weight_interpreter_target_by_uncertainty', type=int)
 
     parser.add_argument('-teacher.name', type=str)
 
