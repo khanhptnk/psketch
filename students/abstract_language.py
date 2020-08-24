@@ -52,32 +52,50 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         self.world = world
         self.STOP = world.actions.STOP.index
         self.n_actions = world.n_actions
-
-    """
-    def set_instructions(self, model, instructions):
-
-        instruction_encodings, instruction_mask = \
-            self._encode_and_pad(instructions)
-        model.init(instruction_encodings, src_mask=instruction_mask)
-
-    def advance_time(self):
-        if self.interpreter_model.training:
-            self.interpreter_model.advance_time()
-        else:
-            self.student_model.advance_time()
-    """
+        self.POP = -1
 
     def terminate(self, i):
         self.terminated[i] = True
 
+    def _encode_and_pad(self, xs):
+        # Init instructed model
+        encodings = []
+        masks = []
+        for x in xs:
+            encodings.append([self.vocab[w] for w in x])
+            masks.append([0] * len(encodings[-1]))
+        # Padding
+        #max_len = max([len(encoding) for encoding in encodings])
+        max_len = 3
+
+        for encoding in encodings:
+            encoding.extend([self.vocab['<PAD>']] * (max_len - len(encoding)))
+
+        for mask in masks:
+            mask.extend([1] * (max_len - len(mask)))
+
+        encodings = self._to_tensor(encodings).long()
+        masks = self._to_tensor(masks).bool()
+
+        return encodings, masks
+
     def init_model(self, model, instructions):
         instruction_encodings, instruction_masks = \
             self._encode_and_pad(instructions)
-        init_h = model.encode(instruction_encodings, src_mask=instruction_masks)
-        init_t = self._to_tensor([0] * len(instructions)).long()
-        return init_h, init_t
+        return model.encode(instruction_encodings, src_mask=instruction_masks)
 
     def init(self, states, tasks, is_eval):
+
+        if is_eval:
+            self.interpreter_model.eval()
+            self.student_model.eval()
+            self.acting_model = self.student_model
+            if self.config.trainer.test_interpreter:
+                self.acting_model = self.interpreter_model
+        else:
+            self.student_model.train()
+            self.interpreter_model.train()
+            self.acting_model = self.interpreter_model
 
         self.batch_size = len(states)
 
@@ -89,18 +107,134 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         self.interpreter_data = []
         self.student_data = []
 
-        self.next_interpreter_h = None
-        self.next_interpreter_t = None
+        self.instruction_stacks = [[] for _ in range(self.batch_size)]
+        self.state_stacks = [[] for _ in range(self.batch_size)]
 
-        if is_eval:
-            self.interpreter_model.eval()
-            self.student_model.eval()
-            tasks = [str(task).split() for task in tasks]
-            self.student_h, self.student_t = self.init_model(self.student_model, tasks)
-        else:
-            self.student_model.train()
-            self.interpreter_model.train()
+        self.push_stacks(0, list(range(self.batch_size)),
+            [['<PAD>'] for _ in range(self.batch_size)])
 
+        self.push_stacks(0, list(range(self.batch_size)),
+            [str(task).split() for task in tasks])
+
+    def push_stacks(self, time, indices, instructions):
+
+        assert len(indices) == len(instructions)
+
+        if not indices:
+            return
+
+        c, m, (h0, h1), t = self.init_model(self.acting_model, instructions)
+
+        c_list = c.split(1, dim=0)
+        m_list = m.split(1, dim=0)
+        h0_list = h0.split(1, dim=1)
+        h1_list = h1.split(1, dim=1)
+        t_list = t.split(1, dim=0)
+        for i, (idx, instr) in enumerate(zip(indices, instructions)):
+            self.instruction_stacks[idx].append((instr, time))
+            self.state_stacks[idx].append(
+                (c_list[i], m_list[i], h0_list[i], h1_list[i], t_list[i]))
+
+    def top_stack(self, i):
+        return self.instruction_stacks[i][-1]
+
+    def pop_stack(self, i):
+        self.instruction_stacks[i].pop()
+        self.state_stacks[i].pop()
+
+    def is_stack_empty(self, i):
+        return len(self.instruction_stacks[i]) <= 1
+
+    def get_model_states(self, items):
+
+        c_list = []
+        m_list = []
+        h0_list = []
+        h1_list = []
+        t_list = []
+
+        for item in items:
+            c, m, h0, h1, t = item
+            c_list.append(c)
+            m_list.append(m)
+            h0_list.append(h0)
+            h1_list.append(h1)
+            t_list.append(t)
+
+        c = torch.cat(c_list, dim=0)
+        m = torch.cat(m_list, dim=0)
+        h0 = torch.cat(h0_list, dim=1)
+        h1 = torch.cat(h1_list, dim=1)
+        t = torch.cat(t_list, dim=0)
+
+        return c, m, (h0, h1), t
+
+    def act(self, states, debug_idx=None):
+
+        s = [state.features() for state in states]
+        s = self._to_tensor(s).float()
+
+        stack_items = []
+        for stack in self.state_stacks:
+            stack_items.append(stack[-1])
+
+        instructions = []
+        for stack in self.instruction_stacks:
+            instructions.append(stack[-1][0])
+
+        c, m, h, t = self.get_model_states(stack_items)
+        action_logits, _, _ = self.acting_model.decode(s, h, t, c, m)
+        action_dists = D.Categorical(logits=action_logits)
+
+        if self.acting_model.training:
+            actions = action_dists.sample()
+            entropies = action_dists.entropy() / math.log(self.n_actions)
+            ask_actions = (entropies > self.uncertainty_threshold).long()
+
+            if debug_idx != -1 and instructions[debug_idx] != ['<PAD>']:
+                print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx])
+
+            for i in range(self.batch_size):
+                if self.terminated[i]:
+                    actions[i] = self.STOP
+                    ask_actions[i] = 0
+
+            return actions.tolist(), ask_actions.tolist()
+
+        if debug_idx != -1 and instructions[debug_idx] != ['<PAD>']:
+            print(instructions[debug_idx], action_dists.probs[debug_idx])
+
+        actions = action_logits.max(dim=1)[1]
+
+        return actions.tolist()
+
+    def decode_stacks(self, states):
+
+        s = []
+        stack_items = []
+        for i, stack in enumerate(self.state_stacks):
+            stack_items.extend(stack)
+            s.extend([states[i].features() for _ in range(len(stack))])
+
+        s = self._to_tensor(s).float()
+        c, m, h, t = self.get_model_states(stack_items)
+        _, h, t = self.acting_model.decode(s, h, t, c, m)
+
+        h0, h1 = h
+
+        h0_list_iter = iter(h0.split(1, dim=1))
+        h1_list_iter = iter(h1.split(1, dim=1))
+        t_list_iter = iter(t.split(1, dim=0))
+
+        for stack in self.state_stacks:
+            for i in range(len(stack)):
+                item = stack[i]
+                stack[i] = (item[0], item[1],
+                            next(h0_list_iter),
+                            next(h1_list_iter),
+                            next(t_list_iter))
+
+    """
     def act(self, states):
         state_features = [state.features() for state in states]
         state_features = self._to_tensor(state_features).float()
@@ -167,6 +301,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
     def advance_interpreter_state(self):
         self.interpreter_h = self.next_interpreter_h
         self.interpreter_t = self.next_interpreter_t
+    """
 
     def add_interpreter_data(self, description, trajectory):
         #self.interpreter_data.append((description, trajectory))
@@ -245,7 +380,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             loss_weights = self._to_tensor(loss_weights).float()
             #print('loss weights', loss_weights.shape)
 
-            h, t = self.init_model(model, instructions)
+            c, m, h, t = self.init_model(model, instructions)
 
             loss = 0
             seq_len = action_seqs.shape[0]
@@ -255,9 +390,9 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             for i, targets in enumerate(action_seqs):
 
                 states = [state_seq[i] for state_seq in state_seqs]
-                state_features = [state.features() for state in states]
-                state_features = self._to_tensor(state_features).float()
-                logits, h, t = model.decode(state_features, h, t)
+                s = [state.features() for state in states]
+                s = self._to_tensor(s).float()
+                logits, h, t = model.decode(s, h, t, c, m)
 
                 losses = self.loss_fn(logits, targets)
                 valid_targets = (targets != -1)

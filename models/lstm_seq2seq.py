@@ -152,25 +152,25 @@ class LSTMSeq2SeqModel(nn.Module):
         time_embed = self.src_time_embedding(time_tensor)
         src_embed = self.embedding(src)
         src_input = torch.cat([src_embed, time_embed], dim=2)
-        self.context, last_enc_h, last_enc_c = self.encoder(src_input)
-        self.src_mask = src_mask
+        context, last_enc_h, last_enc_c = self.encoder(src_input)
         last_enc_h = self.enc2dec(last_enc_h)
         last_enc_state = (last_enc_h, last_enc_c)
 
-        return last_enc_state
+        time = torch.zeros(batch_size).long().to(self.device)
 
-    def decode(self, obs, h, time):
+        return context, src_mask, (last_enc_h, last_enc_c), time
+
+    def decode(self, s, h, time, context, context_mask):
 
         if not self.no_time:
             time_embed = self.tgt_time_embedding(time)
-            input = torch.cat([obs, time_embed], dim=1)
+            input = torch.cat([s, time_embed], dim=1)
         else:
-            input = obs
+            input = s
 
         output, new_h = self.decoder(input, h)
 
-        attended_context, _ = self.attention(
-            output, self.context, mask=self.src_mask)
+        attended_context, _ = self.attention(output, context, mask=context_mask)
 
         feature = torch.cat([output, attended_context], dim=1)
         logit = self.predictor(feature)
