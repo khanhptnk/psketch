@@ -183,7 +183,7 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
 
         return task_name.split()
 
-    def describe(self, state_seq, action_seq):
+    def describe(self, state_seq, action_seq, action_prob_seq):
 
         assert len(state_seq) - 1 == len(action_seq)
 
@@ -218,32 +218,19 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
         i = n - 1
         while i > 0:
             j, descr = prev[i]
+
             state_subseq = state_seq[j:i + 1]
             action_subseq = action_seq[j:i]
+            action_prob_subseq = action_prob_seq[j:i]
+
             state_subseq.append(state_subseq[-1])
             action_subseq.append(state_subseq[-1].world.actions.STOP.index)
-            #print(descr, action_subseq)
-            #state_subseq[0].render()
-            #state_subseq[-1].render()
-            dataset.append((descr, (state_subseq, action_subseq)))
+            action_prob_subseq.append(1)
+
+            dataset.append((descr, (state_subseq, action_subseq, action_prob_subseq)))
             i = j
 
         return list(reversed(dataset))
-
-        """
-        description_list = []
-        i = n - 1
-        while i > 0:
-            description_list.append(prev[i][1])
-            i = prev[i][0]
-        description_list = reversed(description_list)
-
-        description = []
-        for d in description_list:
-            description.extend(d)
-
-        return description
-        """
 
     def should_stop(self, instruction, state):
         return self.instruct(instruction, state) == ['stop']

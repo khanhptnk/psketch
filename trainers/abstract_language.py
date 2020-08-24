@@ -48,6 +48,8 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
         t = 0
 
+        random = self.config.random
+
         while not all(done):
 
             if is_eval:
@@ -63,6 +65,8 @@ class AbstractLanguageTrainer(ImitationTrainer):
                 asked_with_instructions = [set() for _ in range(batch_size)]
                 env_actions = [student.STOP if done[i] else None
                     for i in range(batch_size)]
+                env_action_probs = [1 if done[i] else None
+                    for i in range(batch_size)]
 
                 while not all(x is not None for x in env_actions):
 
@@ -76,7 +80,8 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
                     # Student takes actions
                     with torch.no_grad():
-                        actions, ask_actions = student.act(states, debug_idx=debug_idx)
+                        actions, ask_actions, action_probs = \
+                            student.act(states, debug_idx=debug_idx)
 
                     for i in range(batch_size):
                         instr = ' '.join(instructions[i])
@@ -131,11 +136,15 @@ class AbstractLanguageTrainer(ImitationTrainer):
                             if i == debug_idx and not done[i]:
                                 print('=== ASK at', states[i].pos, 'with instruction', instructions[i])
 
-
                             asked_with_instructions[i].add(' '.join(instructions[i]))
 
+                            if self.config.trainer.random_describe:
+                                ask_description = random.rand() >= action_probs[i]
+                            else:
+                                ask_description = 1
+
                             # Ask teacher to describe execution of current instruction
-                            if starts[i] < t:
+                            if starts[i] < t and ask_description:
                                 time_range = (starts[i], t)
                                 # Check if description has been cached
                                 if time_range in description_memory[i]:
@@ -152,6 +161,11 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                 # Add to data for training interpreter
                                 if descr is not None:
                                     student.add_interpreter_data(descr, traj)
+                                    if i == debug_idx and not done[i]:
+                                        print('++++ Add descriptions:', end=' ')
+                                        for item in descr:
+                                            print(item[0], end=' ')
+                                        print()
 
                             # Request teacher a new instruction
                             instr = teacher.instruct(instructions[i], states[i], debug=i==debug_idx)
@@ -173,6 +187,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
                             # Stack empty = terminate executing task command
                             if student.is_stack_empty(i):
                                 env_actions[i] = actions[i]
+                                env_action_probs[i] = action_probs[i]
 
                             time_range = (starts[i], t)
                             traj = student.slice_trajectory(i, *time_range)
@@ -180,21 +195,33 @@ class AbstractLanguageTrainer(ImitationTrainer):
                             num_interactions += 1
 
                             if teacher.should_stop(instructions[i], states[i]):
-                                state_seq, action_seq = traj
+                                state_seq, action_seq, action_prob_seq = traj
+
                                 state_seq.append(state_seq[-1])
                                 action_seq.append(student.STOP)
+                                action_prob_seq.append(1)
+
                                 descr = [(instructions[i], traj)]
                                 student.add_student_data(descr, traj)
                             else:
-                                if time_range in description_memory[i]:
-                                    descr = description_memory[i][time_range]
-                                else:
-                                    descr = teacher.describe(*traj)
-                                    description_memory[i][time_range] = descr
 
-                                    if descr is not None:
-                                        for item in descr:
-                                            num_interactions += len(item[0]) * bits_per_word
+                                if self.config.trainer.random_describe:
+                                    ask_description = random.rand() >= action_probs[i]
+                                else:
+                                    ask_description = 1
+
+                                if ask_description:
+                                    if time_range in description_memory[i]:
+                                        descr = description_memory[i][time_range]
+                                    else:
+                                        descr = teacher.describe(*traj)
+                                        description_memory[i][time_range] = descr
+
+                                        if descr is not None:
+                                            for item in descr:
+                                                num_interactions += len(item[0]) * bits_per_word
+                                else:
+                                    descr = None
 
                             if descr is not None:
                                 if i == debug_idx and not done[i]:
@@ -202,6 +229,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                 student.add_interpreter_data(descr, traj)
                         else:
                             env_actions[i] = actions[i]
+                            env_action_probs[i] = action_probs[i]
 
                     student.push_stacks(t, push_indices, push_instructions)
 
@@ -213,11 +241,15 @@ class AbstractLanguageTrainer(ImitationTrainer):
                 if not done[i]:
                     _, states[i] = states[i].step(env_actions[i])
                     action_seqs[i].append(env_actions[i])
-                    student.append_trajectory(i, env_actions[i], states[i])
+
+                    if not is_eval:
+                        student.append_trajectory(
+                            i, env_actions[i], env_action_probs[i], states[i])
+
                     num_steps += (not is_eval)
 
             if debug_idx != -1 and not done[debug_idx]:
-                print('ENV:', env_actions[debug_idx])
+                print('ENV:', env_actions[debug_idx], '%.2f' % env_action_probs[debug_idx])
                 states[debug_idx].render()
 
             for i in range(batch_size):

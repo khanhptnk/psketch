@@ -101,6 +101,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
 
         self.state_seqs = [[state] for state in states]
         self.action_seqs = [[] for _ in range(self.batch_size)]
+        self.action_prob_seqs = [[] for _ in range(self.batch_size)]
 
         self.terminated = [False] * self.batch_size
 
@@ -199,7 +200,9 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
                     actions[i] = self.STOP
                     ask_actions[i] = 0
 
-            return actions.tolist(), ask_actions.tolist()
+            action_probs = action_dists.probs[range(len(actions)), actions]
+
+            return actions.tolist(), ask_actions.tolist(), action_probs.tolist()
 
         if debug_idx != -1 and instructions[debug_idx] != ['<PAD>']:
             print(instructions[debug_idx], action_dists.probs[debug_idx])
@@ -234,75 +237,6 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
                             next(h1_list_iter),
                             next(t_list_iter))
 
-    """
-    def act(self, states):
-        state_features = [state.features() for state in states]
-        state_features = self._to_tensor(state_features).float()
-
-        action_logits, self.student_h, self.student_t = \
-            self.student_model.decode(
-                state_features, self.student_h, self.student_t)
-
-        if self.student_model.training:
-            actions = D.Categorical(logits=action_logits).sample()
-        else:
-            actions = action_logits.max(dim=1)[1]
-
-        return actions.tolist()
-
-    def interpret(self, states, instructions, debug_idx=0):
-
-        h, t = self.init_model(self.interpreter_model, instructions)
-
-        if all(self.interpreter_reset_at_index):
-            self.interpreter_h, self.interpreter_t = h, t
-        else:
-            for i in range(self.batch_size):
-                if self.interpreter_reset_at_index[i]:
-                    self.interpreter_t[i] = t[i]
-                    for j in range(2):
-                        self.interpreter_h[j][:, i, :] = h[j][:, i, :]
-
-        state_features = [state.features() for state in states]
-        state_features = self._to_tensor(state_features).float()
-
-        action_logits, self.next_interpreter_h, self.next_interpreter_t = \
-            self.interpreter_model.decode(
-                state_features, self.interpreter_h, self.interpreter_t)
-        action_dists = D.Categorical(logits=action_logits)
-
-
-        if self.interpreter_model.training:
-            actions = action_dists.sample()
-            entropies = action_dists.entropy() / math.log(self.n_actions)
-            ask_actions = (entropies > self.uncertainty_threshold).long()
-
-            if debug_idx != -1 and instructions[debug_idx] != ['<PAD>']:
-                print(instructions[debug_idx], action_dists.probs[debug_idx], entropies.tolist()[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
-
-            #print(actions[0])
-
-            for i in range(self.batch_size):
-                if self.terminated[i]:
-                    actions[i] = self.STOP
-                    ask_actions[i] = 0
-
-            return actions.tolist(), ask_actions.tolist()
-
-
-        actions = action_logits.max(dim=1)[1]
-
-        if debug_idx != -1 and instructions[debug_idx] != ['<PAD>']:
-            print(instructions[debug_idx], action_dists.probs[debug_idx], actions.tolist()[debug_idx], self.interpreter_t.tolist()[debug_idx])
-
-
-        return actions.tolist()
-
-    def advance_interpreter_state(self):
-        self.interpreter_h = self.next_interpreter_h
-        self.interpreter_t = self.next_interpreter_t
-    """
-
     def add_interpreter_data(self, description, trajectory):
         #self.interpreter_data.append((description, trajectory))
         self.interpreter_data.extend(description)
@@ -311,37 +245,23 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         #self.student_data.append((description, trajectory))
         self.student_data.extend(description)
 
-    def append_trajectory(self, i, action, state):
+    def append_trajectory(self, i, action, action_prob, state):
         self.action_seqs[i].append(action)
+        self.action_prob_seqs[i].append(action_prob)
         self.state_seqs[i].append(state)
 
-    def slice_trajectory(self, i, start, end):
+    def slice_trajectory(self, i, start, end, return_prob=False):
 
         # (s_start, a_start, ..., a_{end - 1}, state)
         state_seq = self.state_seqs[i][start:(end + 1)]
         action_seq = self.action_seqs[i][start:end]
+        action_prob_seq = self.action_prob_seqs[i][start:end]
 
-        return state_seq, action_seq
+        return state_seq, action_seq, action_prob_seq
 
     def _make_batch(self, data):
 
         def wrap_state_seq(data):
-            """
-            for item in data:
-                state_feature_seq = []
-                for state in item[:-1]:
-                    state_feature_seq.append(state.features())
-                state_feature_seqs.append(state_feature_seq)
-
-            max_len = max([len(item) for item in state_feature_seqs])
-
-            state_feature_seqs = [item + [item[-1]] * (max_len - len(item))
-                for item in state_feature_seqs]
-            state_feature_seqs = self._to_tensor(state_feature_seqs)\
-                .transpose(0, 1).contiguous().float()
-            """
-
-
             max_len = max([len(item) - 1 for item in data])
             data = [item[:-1] + [item[-1]] * (max_len - len(item) + 1)
                 for item in data]
@@ -353,7 +273,12 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             data = self._to_tensor(data).transpose(0, 1).long()
             return data
 
-        #data = sorted(data, key=lambda x: len(x[1][1]))
+        def wrap_prob_seq(data):
+            max_len = max([len(item) for item in data])
+            data = [item + [-1] * (max_len - len(item)) for item in data]
+            data = self._to_tensor(data).transpose(0, 1).float()
+            return data
+
         self.random.shuffle(data)
         batched_data = []
         i = 0
@@ -361,33 +286,31 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             j = i + self.batch_size
             batch = data[i:j]
             d_batch, t_batch = zip(*batch)
-            s_batch, a_batch = zip(*t_batch)
+            s_batch, a_batch, p_batch = zip(*t_batch)
             s_batch = wrap_state_seq(s_batch)
             a_batch = wrap_action_seq(a_batch)
-            #assert s_batch.shape[0] == a_batch.shape[0]
-            batched_data.append((d_batch, s_batch, a_batch))
+            p_batch = wrap_prob_seq(p_batch)
+            batched_data.append((d_batch, s_batch, a_batch, p_batch))
             i = j
         return batched_data
 
     def _compute_loss(self, data, model, weights):
 
-        for instructions, state_seqs, action_seqs in data:
+        for instructions, state_seqs, action_seqs, action_prob_seqs in data:
 
             loss_weights = []
             for instr in instructions:
                 instr = ' '.join(instr)
                 loss_weights.append(weights[instr])
             loss_weights = self._to_tensor(loss_weights).float()
-            #print('loss weights', loss_weights.shape)
 
             c, m, h, t = self.init_model(model, instructions)
 
             loss = 0
             seq_len = action_seqs.shape[0]
 
-            #print(instructions[0], action_seqs[:, 0].tolist())
-
-            for i, targets in enumerate(action_seqs):
+            zipped_info = enumerate(zip(action_seqs, action_prob_seqs))
+            for i, (targets, target_probs) in zipped_info:
 
                 states = [state_seq[i] for state_seq in state_seqs]
                 s = [state.features() for state in states]
@@ -397,6 +320,10 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
                 losses = self.loss_fn(logits, targets)
                 valid_targets = (targets != -1)
                 losses = losses * loss_weights * valid_targets
+
+                if self.config.student.weight_target_by_uncertainty:
+                    losses = losses * target_probs
+
                 loss += losses.sum() / valid_targets.sum()
 
             yield loss, seq_len
@@ -429,21 +356,12 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
 
     def process_data(self):
 
-        #for item in self.student_data:
-            #print('--------', item[0])
-        #if self.student_data:
-            #item = self.student_data[-1]
-            #item[1][0][0].render()
-            #item[1][0][-1].render()
-            #print(item[0], item[1][1])
-
         self.interpreter_data = self._filter_data(self.interpreter_data)
         self.student_data = self._filter_data(self.student_data)
 
         self.interpreter_weights = self._compute_weights(self.interpreter_data)
         self.student_weights = self._compute_weights(self.student_data)
 
-        #print(len(self.interpreter_data), len(self.student_data))
         self.interpreter_data = self._make_batch(self.interpreter_data)
         self.student_data = self._make_batch(self.student_data)
 
@@ -460,9 +378,7 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             i_loss.backward()
             self.optim.step()
             total_i_loss.append(i_loss.item() / i_len)
-            #print(total_i_loss[-1])
 
-        #print(len(total_i_loss))
         if total_i_loss:
             total_i_loss = sum(total_i_loss) / len(total_i_loss)
         else:
@@ -475,15 +391,12 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             self.optim.step()
             total_s_loss.append(s_loss.item() / s_len)
 
-        #print(len(total_s_loss))
         if total_s_loss:
             total_s_loss = sum(total_s_loss) / len(total_s_loss)
         else:
             total_s_loss = 0
 
-        return 0
-
-        #return total_i_loss + total_s_loss
+        return total_i_loss + total_s_loss
 
     def save(self, name, trajectories=None):
         file_path = os.path.join(self.config.experiment_dir, name + '.ckpt')
