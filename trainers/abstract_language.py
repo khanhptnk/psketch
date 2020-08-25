@@ -27,7 +27,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
         student.init(init_states, tasks, is_eval)
 
-        debug_idx = 0
+        debug_idx = -1
         if debug_idx != -1:
             init_states[debug_idx].render()
 

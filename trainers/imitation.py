@@ -176,6 +176,9 @@ class ImitationTrainer(object):
                 logging.info('Decay policy mix rate to %.2f' %
                     self.policy_mix_rate)
 
+            if i_iter >= max_iters:
+                break
+
     def evaluate(self, dataset, world, student, teacher, save_traj=False):
 
         student.prepare(world)
