@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.distributions as D
 
 import models
+from .label_smoothing import LabelSmoothingCrossEntropy
 from .primitive_language import PrimitiveLanguageStudent
 
 
@@ -46,7 +47,10 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         if hasattr(model_config, 'load_from'):
             self.load(model_config.load_from)
 
-        self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1, reduction='none')
+        if model_config.label_smoothing:
+            self.loss_fn = LabelSmoothingCrossEntropy(ignore_index=-1, reduction='none')
+        else:
+            self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1, reduction='none')
 
     def prepare(self, world):
         self.world = world

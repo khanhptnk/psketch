@@ -13,12 +13,14 @@ student:
     dropout_ratio: .0
     learning_rate: .001
     no_time: 0
+    label_smoothing: 0
   reweight_data: 0
   uncertainty_threshold: 0.35
   weight_student_target_by_uncertainty: 1
   weight_interpreter_target_by_uncertainty: 1
 teacher:
   name: AbstractLanguageTeacher
+  primitive_language_only: 0
 trainer: 
   batch_size: 32
   name: AbstractLanguageTrainer

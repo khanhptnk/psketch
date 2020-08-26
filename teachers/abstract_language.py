@@ -66,15 +66,14 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
         if all_primitives:
             return None
 
-        """
-        goal_name, goal_arg = instruction
-        task = self.task_map[goal_arg][goal_name]
-        assert task is not None
+        if self.config.teacher.primitive_language_only:
+            goal_name, goal_arg = instruction
+            task = self.task_map[goal_arg][goal_name]
+            assert task is not None
 
-        action = self(task, state)
-        instruction = [self.action_to_word(action, state.world)]
-        return instruction
-        """
+            action = self(task, state)
+            instruction = [self.action_to_word(action, state.world)]
+            return instruction
 
         goal_name, goal_arg = instruction
         task = self.task_map[goal_arg][goal_name]
@@ -103,32 +102,34 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
 
         task_names = []
 
-        # Check make and get tasks
-        inventory_diff = state_seq[-1].inventory - state_seq[0].inventory
-        last_inventory_diff = state_seq[-1].inventory - state_seq[-2].inventory
+        if not self.config.teacher.primitive_language_only:
 
-        added_one_item = inventory_diff[inventory_diff == 1].sum() == 1
-        just_added_one_item = last_inventory_diff[last_inventory_diff == 1].sum() == 1
+            # Check make and get tasks
+            inventory_diff = state_seq[-1].inventory - state_seq[0].inventory
+            last_inventory_diff = state_seq[-1].inventory - state_seq[-2].inventory
 
-        if added_one_item and just_added_one_item:
-            item_id = inventory_diff.tolist().index(1)
-            item_name = state_seq[-1].get_item_name_by_id(item_id)
-            task = self.task_map[item_name]['get']
-            if task is not None:
-                task_names.append(str(task))
-            else:
-                task = self.task_map[item_name]['make']
+            added_one_item = inventory_diff[inventory_diff == 1].sum() == 1
+            just_added_one_item = last_inventory_diff[last_inventory_diff == 1].sum() == 1
+
+            if added_one_item and just_added_one_item:
+                item_id = inventory_diff.tolist().index(1)
+                item_name = state_seq[-1].get_item_name_by_id(item_id)
+                task = self.task_map[item_name]['get']
                 if task is not None:
                     task_names.append(str(task))
+                else:
+                    task = self.task_map[item_name]['make']
+                    if task is not None:
+                        task_names.append(str(task))
 
-        # Check go tasks
-        if not inventory_diff.any():
-            neighbor_pos = state_seq[-1].neighbors()[0]
-            item_name = state_seq[-1].get_item_name_at(neighbor_pos)
-            if item_name is not None:
-                task = self.task_map[item_name]['go']
-                assert task is not None, item_name
-                task_names.append(str(task))
+            # Check go tasks
+            if not inventory_diff.any():
+                neighbor_pos = state_seq[-1].neighbors()[0]
+                item_name = state_seq[-1].get_item_name_at(neighbor_pos)
+                if item_name is not None:
+                    task = self.task_map[item_name]['go']
+                    assert task is not None, item_name
+                    task_names.append(str(task))
 
         # Check primitive actions
         if len(state_seq) == 2:
