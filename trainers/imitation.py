@@ -122,6 +122,9 @@ class ImitationTrainer(object):
 
             i_iter += 1
 
+            if i_iter == 100:
+                student.no_label_smoothing()
+
             info = self.do_rollout(batch, world, student, teacher, False)
             success = info['success']
             distances = info['distances']

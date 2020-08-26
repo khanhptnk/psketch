@@ -53,6 +53,9 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         else:
             self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1, reduction='none')
 
+    def no_label_smoothing(self):
+        self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1, reduction='none')
+
     def prepare(self, world):
         self.world = world
         self.STOP = world.actions.STOP.index
