@@ -14,9 +14,9 @@ student:
     learning_rate: .001
     no_time: 0
   reweight_data: 0
-  uncertainty_threshold: 0.3
-  weight_student_target_by_uncertainty: 0
-  weight_interpreter_target_by_uncertainty: 0
+  uncertainty_threshold: 0.35
+  weight_student_target_by_uncertainty: 1
+  weight_interpreter_target_by_uncertainty: 1
 teacher:
   name: AbstractLanguageTeacher
 trainer: 
@@ -29,8 +29,8 @@ trainer:
   policy_mix:
       init_rate: 0
       decay_every: null
-  test_interpreter: 0
-  random_describe: 0
+  test_interpreter: 1
+  random_describe: 1
 seed: 123
 data_dir: "data"
 device_id: 0

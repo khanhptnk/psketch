@@ -157,7 +157,11 @@ class ImitationTrainer(object):
                 logging.info(log_str)
 
                 # Save last student's model
-                student.save('last')
+                if self.config.trainer.save_every_log:
+                    student.save('iter_%d' % i_iter)
+                else:
+                    student.save('last')
+
 
                 # Save best student's model
                 eval_success_rate, eval_info = \

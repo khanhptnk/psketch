@@ -59,6 +59,7 @@ def make_config():
     parser.add_argument('-trainer.policy_mix.decay_every', type=int)
     parser.add_argument('-trainer.test_interpreter', type=int)
     parser.add_argument('-trainer.random_describe', type=int)
+    parser.add_argument('-trainer.save_every_log', type=int, default=0)
 
     parser.add_argument('-sanity_check_1', type=int, default=0)
     parser.add_argument('-sanity_check_2', type=int, default=0)

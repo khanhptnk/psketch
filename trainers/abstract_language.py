@@ -27,7 +27,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
         student.init(init_states, tasks, is_eval)
 
-        debug_idx = -1
+        debug_idx = 0
         if debug_idx != -1:
             init_states[debug_idx].render()
 
@@ -192,36 +192,23 @@ class AbstractLanguageTrainer(ImitationTrainer):
                             time_range = (starts[i], t)
                             traj = student.slice_trajectory(i, *time_range)
 
-                            num_interactions += 1
-
-                            if teacher.should_stop(instructions[i], states[i]):
-                                state_seq, action_seq, action_prob_seq = traj
-
-                                state_seq.append(state_seq[-1])
-                                action_seq.append(student.STOP)
-                                action_prob_seq.append(1)
-
-                                descr = [(instructions[i], traj)]
-                                student.add_student_data(descr, traj)
+                            if self.config.trainer.random_describe:
+                                ask_description = random.rand() >= action_probs[i]
                             else:
+                                ask_description = 1
 
-                                if self.config.trainer.random_describe:
-                                    ask_description = random.rand() >= action_probs[i]
+                            if ask_description:
+                                if time_range in description_memory[i]:
+                                    descr = description_memory[i][time_range]
                                 else:
-                                    ask_description = 1
+                                    descr = teacher.describe(*traj)
+                                    description_memory[i][time_range] = descr
 
-                                if ask_description:
-                                    if time_range in description_memory[i]:
-                                        descr = description_memory[i][time_range]
-                                    else:
-                                        descr = teacher.describe(*traj)
-                                        description_memory[i][time_range] = descr
-
-                                        if descr is not None:
-                                            for item in descr:
-                                                num_interactions += len(item[0]) * bits_per_word
-                                else:
-                                    descr = None
+                                    if descr is not None:
+                                        for item in descr:
+                                            num_interactions += len(item[0]) * bits_per_word
+                            else:
+                                descr = None
 
                             if descr is not None:
                                 if i == debug_idx and not done[i]:
