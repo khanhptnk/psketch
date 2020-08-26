@@ -207,6 +207,9 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
                 if self.terminated[i]:
                     actions[i] = self.STOP
                     ask_actions[i] = 0
+                else:
+                    if self.random.rand() < self.config.student.epsilon_exploration.rate:
+                        actions[i] = self.random.choice(list(range(self.n_actions)))
 
             action_probs = action_dists.probs[range(len(actions)), actions]
 

@@ -183,6 +183,9 @@ class ImitationTrainer(object):
                 logging.info('Decay policy mix rate to %.2f' %
                     self.policy_mix_rate)
 
+            if self.config.student.epsilon_exploration.decay:
+                self.config.student.epsilon_exploration.rate /= 2
+
             if i_iter >= max_iters:
                 break
 

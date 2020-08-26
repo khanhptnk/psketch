@@ -47,6 +47,8 @@ def make_config():
     parser.add_argument('-student.reweight_data', type=int)
     parser.add_argument('-student.weight_student_target_by_uncertainty', type=int)
     parser.add_argument('-student.weight_interpreter_target_by_uncertainty', type=int)
+    parser.add_argument('-student.epsilon_exploration.rate', type=float)
+    parser.add_argument('-student.epsilon_exploration.decay', type=int)
 
     parser.add_argument('-teacher.name', type=str)
     parser.add_argument('-teacher.primitive_language_only', type=int)

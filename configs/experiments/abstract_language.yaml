@@ -18,6 +18,9 @@ student:
   uncertainty_threshold: 0.35
   weight_student_target_by_uncertainty: 1
   weight_interpreter_target_by_uncertainty: 1
+  epsilon_exploration: 
+    rate: 0
+    decay: 0
 teacher:
   name: AbstractLanguageTeacher
   primitive_language_only: 0
