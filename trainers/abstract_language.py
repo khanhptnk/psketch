@@ -36,7 +36,11 @@ class AbstractLanguageTrainer(ImitationTrainer):
         done = [False] * batch_size
         num_interactions = 0
         num_steps = 0
-        bits_per_word = math.ceil(math.log(len(self.config.vocab)) / math.log(2))
+
+        vocab_size = len(self.config.vocab)
+        if self.config.teacher.primitive_language_only:
+            vocab_size = self.config.student.model.n_actions
+        bits_per_word = math.ceil(math.log(vocab_size) / math.log(2))
         #print('bits_per_word', bits_per_word)
 
         action_seqs = [[] for i in range(batch_size)]
