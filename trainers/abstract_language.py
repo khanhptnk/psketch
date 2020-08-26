@@ -196,12 +196,13 @@ class AbstractLanguageTrainer(ImitationTrainer):
                             time_range = (starts[i], t)
                             traj = student.slice_trajectory(i, *time_range)
 
-                            instr = teacher.instruct(instructions[i], states[i])
+                            instr = teacher.instruct(instructions[i], states[i], debug=i==debug_idx)
 
                             if instr is not None:
                                 num_interactions += len(instr) * bits_per_word
 
                             if instr == ['stop']:
+                            #if teacher.should_stop(instructions[i], states[i]):
                                 state_seq, action_seq, action_prob_seq = traj
                                 state_seq.append(state_seq[-1])
                                 action_seq.append(student.STOP)
@@ -213,6 +214,7 @@ class AbstractLanguageTrainer(ImitationTrainer):
                                     ask_description = random.rand() >= action_probs[i]
                                 else:
                                     ask_description = 1
+                                #ask_description = 1
 
                                 if ask_description:
                                     if time_range in description_memory[i]:

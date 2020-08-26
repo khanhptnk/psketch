@@ -48,7 +48,8 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
             self.load(model_config.load_from)
 
         if model_config.label_smoothing:
-            self.loss_fn = LabelSmoothingCrossEntropy(ignore_index=-1, reduction='none')
+            self.loss_fn = LabelSmoothingCrossEntropy(
+                ignore_index=-1, reduction='none', epsilon=model_config.label_smoothing)
         else:
             self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1, reduction='none')
 

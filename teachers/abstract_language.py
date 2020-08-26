@@ -233,10 +233,8 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
 
         return list(reversed(dataset))
 
-    """
     def should_stop(self, instruction, state):
         return self.instruct(instruction, state) == ['stop']
-    """
 
 
 
