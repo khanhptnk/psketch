@@ -9,6 +9,7 @@ from .demonstration import DemonstrationTeacher
 class AbstractLanguageTeacher(DemonstrationTeacher):
 
     PRIMITIVE_ACTION_LEN = 4
+    MAX_DESCRIPTION_WORDS = 5
 
     def __init__(self, config):
 
@@ -197,6 +198,7 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
             """
 
         n = len(state_seq)
+
         f = [1e9] * n
         prev = [None] * n
 
@@ -215,6 +217,7 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
         if prev[n - 1] is None:
             return None
 
+        """
         dataset = []
         i = n - 1
         while i > 0:
@@ -230,11 +233,46 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
 
             dataset.append((descr, (state_subseq, action_subseq, action_prob_subseq)))
             i = j
+        """
+
+
+
+        words = []
+        i = n - 1
+
+        if f[i] > self.MAX_DESCRIPTION_WORDS:
+            return []
+
+        """
+        while f[i] > self.MAX_DESCRIPTION_WORDS:
+            i -= 1
+        """
+
+        while i > 0:
+            j, descr = prev[i]
+            words.append(' '.join(descr))
+            i = j
+
+        description = ' '.join(list(reversed(words))).split()
+        assert len(description) <= self.MAX_DESCRIPTION_WORDS
+
+        state_seq = state_seq[:]
+        action_seq = action_seq[:]
+        action_prob_seq = action_prob_seq[:]
+
+        state_seq.append(state_seq[-1])
+        action_seq.append(state_subseq[-1].world.actions.STOP.index)
+        action_prob_seq.append(1)
+
+        dataset = [(description, (state_seq, action_seq, action_prob_seq))]
+
 
         return list(reversed(dataset))
 
+    """
     def should_stop(self, instruction, state):
         return self.instruct(instruction, state) == ['stop']
+    """
 
 
 
