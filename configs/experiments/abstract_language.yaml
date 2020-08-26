@@ -13,7 +13,7 @@ student:
     dropout_ratio: .0
     learning_rate: .001
     no_time: 0
-    label_smoothing: 0
+    label_smoothing: 0.1
   reweight_data: 0
   uncertainty_threshold: 0.35
   weight_student_target_by_uncertainty: 1
