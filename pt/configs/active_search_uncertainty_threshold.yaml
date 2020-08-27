@@ -1,0 +1,37 @@
+description: Language Based Interactive Learning (active primitive baseline)
+
+target:
+  vc: intvc
+  cluster: rr1
+
+environment:
+  # image: dipendramisra/pytorch_branch_fairseq:1.0
+  # image: dipendramisra/fairseq:1.0
+  # image: nvidia/driver:440.64.00-ubuntu18.04-aws
+  # image: pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
+  image: kracwarlock/unlik:1.4
+  #image: microsoft_pytorch:v1.2.0_gpu_cuda9.0_py36_release_gpuenv_hvd0.16.2
+  #registry: phillyregistry.azurecr.io
+
+code:
+  local_dir: $CONFIG_DIR/../..
+
+data:
+  local_dir: $CONFIG_DIR/../../data
+  remote_dir: language_based_interactive_learning/data
+
+search:
+  job_template:
+    name: search_{experiment_name:s}_{auto:s}
+    sku: G1
+    command:
+    - pip install --user scikit-image
+    - pip install --user jsonargparse
+    - ls configs/
+    - python train.py -config configs/experiments/active_primitive_language.yaml -student.uncertainty {threshold} -name active_{job_name} 
+  type: grid
+  max_trials: 10000
+  params:
+    - name: threshold
+      spec: discrete
+      values: [0.15, 0.2, 0.25, 0.3, 0.35, 0.40, .45, 0.5]

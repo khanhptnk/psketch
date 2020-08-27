@@ -1,0 +1,30 @@
+description: Language Based Interactive Learning (active primitive baseline)
+
+target:
+  vc: intvc
+  cluster: rr1
+
+environment:
+  # image: dipendramisra/pytorch_branch_fairseq:1.0
+  # image: dipendramisra/fairseq:1.0
+  # image: nvidia/driver:440.64.00-ubuntu18.04-aws
+  # image: pytorch/pytorch:1.4-cuda10.1-cudnn7-devel
+  image: kracwarlock/unlik:1.4
+  #image: microsoft_pytorch:v1.2.0_gpu_cuda9.0_py36_release_gpuenv_hvd0.16.2
+  #registry: phillyregistry.azurecr.io
+
+code:
+  local_dir: $CONFIG_DIR/../..
+
+data:
+  local_dir: $CONFIG_DIR/../../data
+  remote_dir: language_based_interactive_learning/data
+
+jobs:
+  - name: no_time_imitation
+    sku: G1
+    command:
+    - pip install --user scikit-image
+    - pip install --user jsonargparse
+    - ls configs/
+    - python train.py -config configs/experiments/active_primitive_language.yaml -student.uncertainty 0.35 -name active_{job_name} 
