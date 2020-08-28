@@ -27,14 +27,14 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
         student.init(init_states, tasks, is_eval)
 
-        debug_idx = 0
+        debug_idx = 2
         if debug_idx != -1:
             init_states[debug_idx].render()
 
         states = init_states[:]
         timer = [self.config.trainer.max_timesteps] * batch_size
         done = [False] * batch_size
-        num_interactions = 0
+        num_interactions = [0] * batch_size
         num_steps = 0
 
         vocab_size = len(self.config.vocab)
@@ -160,21 +160,29 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
                                     if descr is not None:
                                         for item in descr:
-                                            num_interactions += len(item[0]) * bits_per_word
+                                            num_interactions[i] += len(item[0]) * bits_per_word
 
                                 # Add to data for training interpreter
                                 if descr is not None:
                                     student.add_interpreter_data(descr, traj)
                                     if i == debug_idx and not done[i]:
-                                        print('++++ Add descriptions:', end=' ')
+                                        print('++++ Add descriptions:')
                                         for item in descr:
-                                            print(item[0], end=' ')
-                                        print()
+                                            state_seq, action_seq, action_prob_seq = traj
+                                            action_seq_words = [teacher.action_to_word(a, world) for a in action_seq]
+                                            print('action_seq', action_seq_words)
+                                            print('description', item[0])
+                                            print('instruction', instructions[i])
+                                            print('task', str(tasks[i]).split())
+                                            state_seq[0].render()
+                                            state_seq[-1].render()
+                                            print('xxxxxxxxxxx')
+                                        print('=======================')
 
                             # Request teacher a new instruction
                             instr = teacher.instruct(instructions[i], states[i], debug=i==debug_idx)
                             if instr is not None:
-                                num_interactions += len(instr) * bits_per_word
+                                num_interactions[i] += len(instr) * bits_per_word
 
                             if i == debug_idx and not done[i]:
                                 print('ASKed and receive instruction', instr)
@@ -196,13 +204,15 @@ class AbstractLanguageTrainer(ImitationTrainer):
                             time_range = (starts[i], t)
                             traj = student.slice_trajectory(i, *time_range)
 
-                            instr = teacher.instruct(instructions[i], states[i], debug=i==debug_idx)
+                            #instr = teacher.instruct(instructions[i], states[i], debug=i==debug_idx)
 
-                            if instr is not None:
-                                num_interactions += len(instr) * bits_per_word
+                            #if instr is not None:
+                            #    num_interactions[i] += len(instr) * bits_per_word
 
-                            if instr == ['stop']:
-                            #if teacher.should_stop(instructions[i], states[i]):
+                            num_interactions[i] += 1
+
+                            #if instr == ['stop']:
+                            if teacher.should_stop(instructions[i], states[i]):
                                 state_seq, action_seq, action_prob_seq = traj
                                 state_seq.append(state_seq[-1])
                                 action_seq.append(student.STOP)
@@ -225,13 +235,25 @@ class AbstractLanguageTrainer(ImitationTrainer):
 
                                         if descr is not None:
                                             for item in descr:
-                                                num_interactions += len(item[0]) * bits_per_word
+                                                num_interactions[i] += len(item[0]) * bits_per_word
                                 else:
                                     descr = None
 
                             if descr is not None:
                                 if i == debug_idx and not done[i]:
                                     print('+++ STOPped and add description', [item[0] for item in descr])
+                                    for item in descr:
+                                        state_seq, action_seq, action_prob_seq = traj
+                                        action_seq_words = [teacher.action_to_word(a, world) for a in action_seq]
+                                        print('action_seq', action_seq_words)
+                                        print('description', item[0])
+                                        print('instruction', instructions[i])
+                                        print('task', str(tasks[i]).split())
+                                        state_seq[0].render()
+                                        state_seq[-1].render()
+                                        print('xxxxxxxxxxx')
+                                    print('=======================')
+
                                 student.add_interpreter_data(descr, traj)
                         else:
                             env_actions[i] = actions[i]
@@ -272,9 +294,12 @@ class AbstractLanguageTrainer(ImitationTrainer):
             student.process_data()
 
         if debug_idx != -1:
+            print(batch[debug_idx]['id'])
             print(str(tasks[debug_idx]))
             print(batch[debug_idx]['ref_actions'])
             print(action_seqs[debug_idx])
+            print('communication cost:', num_interactions[debug_idx])
+            print('num words:', num_interactions[debug_idx] / bits_per_word)
             print()
 
         success = []
@@ -290,6 +315,8 @@ class AbstractLanguageTrainer(ImitationTrainer):
                     distances.append(len(best_action_seq))
                 else:
                     distances.append(0)
+
+        num_interactions = sum(num_interactions)
 
         info = {
                 'action_seqs': action_seqs,

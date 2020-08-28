@@ -10,6 +10,7 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
 
     PRIMITIVE_ACTION_LEN = 4
     MAX_DESCRIPTION_WORDS = 5
+    MAX_TRAJECTORY_LEN = 10
 
     def __init__(self, config):
 
@@ -189,6 +190,9 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
 
         assert len(state_seq) - 1 == len(action_seq)
 
+        if len(state_seq) > self.MAX_TRAJECTORY_LEN:
+            return []
+
         if not action_seq:
             return []
             """
@@ -240,8 +244,8 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
         words = []
         i = n - 1
 
-        if f[i] > self.MAX_DESCRIPTION_WORDS:
-            return []
+        #if f[i] > self.MAX_DESCRIPTION_WORDS:
+        #    return []
 
         """
         while f[i] > self.MAX_DESCRIPTION_WORDS:
@@ -254,7 +258,7 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
             i = j
 
         description = ' '.join(list(reversed(words))).split()
-        assert len(description) <= self.MAX_DESCRIPTION_WORDS
+        #assert len(description) <= self.MAX_DESCRIPTION_WORDS
 
         state_seq = state_seq[:]
         action_seq = action_seq[:]
@@ -269,10 +273,8 @@ class AbstractLanguageTeacher(DemonstrationTeacher):
 
         return list(reversed(dataset))
 
-    """
     def should_stop(self, instruction, state):
         return self.instruct(instruction, state) == ['stop']
-    """
 
 
 

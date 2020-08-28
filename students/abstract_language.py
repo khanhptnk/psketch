@@ -70,11 +70,11 @@ class AbstractLanguageStudent(PrimitiveLanguageStudent):
         encodings = []
         masks = []
         for x in xs:
-            encodings.append([self.vocab[w] for w in x])
+            encodings.append([self.vocab[w] for w in x] + [self.vocab['<EOS>']])
             masks.append([0] * len(encodings[-1]))
         # Padding
         #max_len = max([len(encoding) for encoding in encodings])
-        max_len = 6
+        max_len = 10
 
         for i, encoding in enumerate(encodings):
             encoding.extend([self.vocab['<PAD>']] * (max_len - len(encoding)))
