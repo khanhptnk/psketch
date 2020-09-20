@@ -76,6 +76,20 @@ class Index:
         return iter(self.ordered_contents)
 
 
+class Vocab(Index):
+
+    def __init__(self):
+
+        super(Vocab, self).__init__()
+        self.index('<PAD>')
+        self.index('<UNK>')
+
+    def __getitem__(self, item):
+        if item not in self.contents:
+            return self.contents['<UNK>']
+        return self.contents[item]
+
+
 class ElapsedFormatter():
 
     def __init__(self):

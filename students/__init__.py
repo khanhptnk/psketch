@@ -1,8 +1,6 @@
 from .imitation import ImitationStudent
-from .primitive_language import PrimitiveLanguageStudent
-from .interactive_primitive_language import InteractivePrimitiveLanguageStudent
-from .active_primitive_language import ActivePrimitiveLanguageStudent
-from .abstract_language import AbstractLanguageStudent
+from .language import LanguageStudent
+from .rl import RLStudent
 
 
 def load(config):

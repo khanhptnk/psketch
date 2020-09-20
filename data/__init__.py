@@ -3,11 +3,9 @@ from .task import TaskManager
 
 def load(config):
 
-    task_manager = TaskManager(config)
-
     datasets = {}
-    for split in ['train', 'dev', 'test']:
-        datasets[split] = Dataset(config, split, task_manager)
+    for split in ['train', 'val', 'test']:
+        datasets[split] = Dataset(config, split)
 
     return datasets
 

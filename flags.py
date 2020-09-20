@@ -25,13 +25,18 @@ def make_config():
     parser.add_argument('-name', type=str)
     parser.add_argument('-recipes', type=str)
     parser.add_argument('-device_id', type=int)
-    parser.add_argument('-data_dir', type=str)
+    parser.add_argument('-data_file', type=str)
     parser.add_argument('-traj_file', type=str)
 
 
     parser.add_argument('-world.name', type=str)
     parser.add_argument('-world.config', type=str)
-    parser.add_argument('-world.feature_dup', type=int)
+    parser.add_argument('-world.feature_dup', type=int, default=1)
+
+    parser.add_argument('-describer.model.load_from', type=str)
+    parser.add_argument('-describer.n_samples', type=int)
+
+    parser.add_argument('-executor.model.load_from', type=str)
 
     parser.add_argument('-student.name', type=str)
     parser.add_argument('-student.uncertainty_threshold', type=float)
@@ -64,9 +69,11 @@ def make_config():
     parser.add_argument('-trainer.test_interpreter', type=int)
     parser.add_argument('-trainer.random_describe', type=int)
     parser.add_argument('-trainer.save_every_log', type=int, default=0)
+    parser.add_argument('-trainer.n_samples', type=int)
 
     parser.add_argument('-sanity_check_1', type=int, default=0)
     parser.add_argument('-sanity_check_2', type=int, default=0)
+    parser.add_argument('-limit_train_data', type=int, default=0)
 
     flags = parser.parse_args()
 

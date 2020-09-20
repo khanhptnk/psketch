@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.distributions as D
 
 import models
-from .label_smoothing import LabelSmoothingCrossEntropy
+from models.label_smoothing import LabelSmoothingCrossEntropy
 from .primitive_language import PrimitiveLanguageStudent
 
 

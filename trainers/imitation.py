@@ -4,6 +4,7 @@ import sys
 sys.path.append('..')
 import itertools
 import json
+import re
 
 import torch
 
@@ -15,126 +16,45 @@ class ImitationTrainer(object):
     def __init__(self, config):
         self.config = config
 
-    def do_rollout(self, batch, world, student, teacher, is_eval):
-        states = []
+    def do_rollout(self, batch, student, is_eval):
+
+        src_words = []
         tasks = []
-        goal_names, goal_args = [], []
+        regexes = []
 
         batch_size = len(batch)
         for item in batch:
+            src_words.append(item['src_word'])
             tasks.append(item['task'])
-            states.append(world.init_state(item['grid'], item['init_pos']))
+            regexes.append(item['regex'])
 
-        student.init(tasks, states, is_eval)
+        student.init(src_words, tasks, is_eval)
 
-        timer = [self.config.trainer.max_timesteps] * batch_size
-
-        done = [False] * batch_size
-        success = [False] * batch_size
-        action_seqs = [[] for i in range(batch_size)]
-        num_interactions = 0
-        num_steps = 0
-
-        if not is_eval:
-            behavior_clone = self.config.random.binomial(
-                1, self.policy_mix_rate, size=batch_size)
-
-        while not all(done):
-            actions = student.act(states)
-
-            ref_actions = [None] * batch_size
-
+        t = 0
+        golds = [None] * batch_size
+        while not student.has_terminated():
             for i in range(batch_size):
-                # Ask teacher for reference action
-                if not is_eval:
-                    if done[i]:
-                        ref_actions[i] = -1
-                    else:
-                        ref_actions[i] = teacher(tasks[i], states[i])
-                        num_interactions += (not is_eval and not done[i])
-
-                    if behavior_clone[i]:
-                        actions[i] = ref_actions[i]
-
-                if not done[i]:
-                    # Save action
-                    action_seqs[i].append(actions[i])
-
-                timer[i] -= 1
-                done[i] |= actions[i] == world.actions.STOP.index or \
-                           timer[i] <= 0
-
-                # Transition to next state
-                if done[i]:
-                    success[i] = states[i].satisfies(tasks[i])
-                    assert success[i] is not None
+                if t + 1 < len(regexes[i]):
+                    golds[i] = regexes[i][t + 1]
                 else:
-                    _, states[i] = states[i].step(actions[i])
-                    num_steps += (not is_eval)
+                    golds[i] = '<PAD>'
+            student.act(gold_actions=golds)
+            t += 1
 
-            # Receive reference actions
-            if not is_eval:
-                student.receive(ref_actions)
-
-        distances = []
-        for i in range(batch_size):
-            if not done[i]:
-                success[i] = states[i].satisfies(tasks[i])
-            if tasks[i].goal_name == 'get':
-                if not success[i]:
-                    state = world.init_state(
-                        batch[i]['grid'], states[i].pos, states[i].dir)
-                    _, best_action_seq = teacher.find_closest_resources(
-                        tasks[i], state)
-                    distances.append(len(best_action_seq))
-                else:
-                    distances.append(0)
-
-        info = {
-                'action_seqs': action_seqs,
-                'success': success,
-                'distances': distances,
-                'num_interactions': num_interactions,
-                'num_steps': num_steps
-            }
-
-        return info
-
-    def train(self, datasets, world, student, teacher):
-
-        student.prepare(world)
+    def train(self, datasets, student):
 
         max_iters = self.config.trainer.max_iters
         log_every = self.config.trainer.log_every
 
         i_iter = 0
         total_loss = 0
-        total_success = (0, 0)
-        total_distance = (0, 0)
-        total_interactions = 0
-        total_steps = 0
-        best_eval_success_rate = -1e9
-
-        self.policy_mix_rate = self.config.trainer.policy_mix.init_rate
-        decay_every = self.config.trainer.policy_mix.decay_every
+        best_eval_score = -1e9
 
         for batch in itertools.cycle(datasets['train'].iterate_batches()):
 
             i_iter += 1
 
-            if i_iter == 100:
-                student.no_label_smoothing()
-
-            info = self.do_rollout(batch, world, student, teacher, False)
-            success = info['success']
-            distances = info['distances']
-            num_interactions = info['num_interactions']
-            num_steps = info['num_steps']
-
-            total_success = util.add_stat(total_success, success)
-            total_distance = util.add_stat(total_distance, distances)
-            total_interactions += num_interactions
-            total_steps += num_steps
+            self.do_rollout(batch, student, False)
 
             loss = student.learn()
             total_loss += loss
@@ -142,102 +62,95 @@ class ImitationTrainer(object):
             if i_iter % log_every == 0:
 
                 avg_loss = total_loss / log_every
-                avg_success_rate = total_success[0] / total_success[1] * 100
-                avg_distance = total_distance[0] / total_distance[1]
-
                 total_loss = 0
 
                 log_str = 'Train iter %d (%d%%): ' % \
                     (i_iter, i_iter / max_iters * 100)
-                log_str += 'policy mix rate = %.2f' % self.policy_mix_rate
-                log_str += ', loss = %.4f' % avg_loss
-                log_str += ', success rate = %.1f' % avg_success_rate
-                log_str += ', distance (get tasks only) = %.2f' % avg_distance
-                log_str += ', num interactions = %d / %d' % \
-                    (total_interactions, total_steps)
+                log_str += 'loss = %.4f' % avg_loss
 
                 logging.info('')
                 logging.info(log_str)
 
-                # Save last student's model
+                # Save last model
                 if self.config.trainer.save_every_log:
                     student.save('iter_%d' % i_iter)
                 else:
                     student.save('last')
 
-
-                # Save best student's model
-                eval_success_rate, eval_info = \
-                    self.evaluate(datasets['dev'], world, student, teacher)
-                if eval_success_rate > best_eval_success_rate:
-                    logging.info('New best success rate: %.1f' %
-                        eval_success_rate)
-                    best_eval_success_rate = eval_success_rate
+                # Save best model
+                eval_info = self.evaluate(datasets['val'], student)
+                eval_score = eval_info['score']
+                eval_preds = eval_info['pred']
+                if eval_score > best_eval_score:
+                    logging.info('New best score: %.1f' % eval_score)
+                    best_eval_score = eval_score
                     student.save('best_dev')
-                    traj_file_path = os.path.join(
-                        self.config.experiment_dir, 'best_dev.traj')
-                    self.save_eval_info(traj_file_path, eval_info)
-
-            if decay_every is not None and i_iter % decay_every == 0:
-                self.policy_mix_rate = 0.9**(i_iter // decay_every)
-                logging.info('Decay policy mix rate to %.2f' %
-                    self.policy_mix_rate)
-
-            if self.config.student.epsilon_exploration.decay:
-                self.config.student.epsilon_exploration.rate /= 2
+                    self.save_preds('best_dev', eval_preds)
+                self.save_preds('last', eval_preds)
 
             if i_iter >= max_iters:
                 break
 
-    def evaluate(self, dataset, world, student, teacher, save_traj=False):
+    def evaluate(self, dataset, student, save_pred=False):
 
-        student.prepare(world)
-
-        eval_info = {}
-        total_success = (0, 0)
-        total_distance = (0, 0)
+        all_scores = []
+        all_preds = []
 
         for i, batch in enumerate(dataset.iterate_batches()):
 
             with torch.no_grad():
-                info = self.do_rollout(batch, world, student, teacher, True)
-                success = info['success']
-                distances = info['distances']
-                action_seqs = info['action_seqs']
 
-            total_success = util.add_stat(total_success, success)
-            total_distance = util.add_stat(total_distance, distances)
+                # Make predictions
+                src_words = [item['src_word'] for item in batch]
+                tasks = [item['task'] for item in batch]
+                preds = student.predict(src_words, tasks)
 
-            assert len(batch) == len(action_seqs)
-            zipped_info = zip(batch, action_seqs, success)
-            for item, traj, is_success in zipped_info:
-                assert item['id'] not in eval_info
-                eval_info[item['id']] = {
-                        'actions': traj,
-                        'success': int(is_success),
-                    }
+                scores = [None] * len(batch)
+                for i, regex in enumerate(preds):
+                    src_word = ''.join(batch[i]['src_word'])[1:-1]
+                    tgt_word = ''.join(batch[i]['tgt_word'])[1:-1]
+                    regex = ''.join(regex)[1:-1]
+                    if '@' not in regex or len(regex.split('@')) != 2:
+                        scores[i] = 0
+                    else:
+                        before, after = regex.split('@')
+                        before = before.replace('C', '[^aeiou]').replace('V', '[aeiou]')
+                        after = '\\1' + after + '\\3'
+                        try:
+                            pred_tgt_word = re.sub(before, after, src_word)
+                            scores[i] = pred_tgt_word == tgt_word
+                        except:
+                            scores[i] = 0
+                all_scores.extend(scores)
 
-        for instance in dataset:
-            assert instance['id'] in eval_info, instance['id']
+            for item, pred in zip(batch, preds):
+                new_item = { 'pred': ''.join(pred)  }
+                new_item.update(item)
+                new_item['src_word'] = ''.join(new_item['src_word'])
+                new_item['tgt_word'] = ''.join(new_item['tgt_word'])
+                new_item['task'] = ' '.join(new_item['task'])
+                new_item['regex'] = ''.join(new_item['regex'])
+                all_preds.append(new_item)
 
-        success_rate = total_success[0] / total_success[1] * 100
-        avg_distance = total_distance[0] / total_distance[1]
+        score = sum(all_scores) / len(all_scores) * 100
 
         log_str = 'Evaluation on %s: ' % dataset.split
-        log_str += 'success rate = %.1f' % success_rate
-        log_str += ', distance (get tasks only) = %.2f' % avg_distance
-
+        log_str += 'score = %.1f' % score
         logging.info(log_str)
 
-        if save_traj:
-            traj_file_path = os.path.join(
-                self.config.experiment_dir, dataset.split + '.traj')
-            self.save_eval_info(traj_file_path, eval_info)
+        if save_pred:
+            self.save_preds(dataset.split, all_preds)
 
-        return success_rate, eval_info
+        eval_info = {
+                'score': score,
+                'pred': all_preds,
+            }
 
-    def save_eval_info(self, file_path, eval_info):
+        return eval_info
+
+    def save_preds(self, filename, all_preds):
+        file_path = os.path.join(self.config.experiment_dir, filename + '.pred')
         with open(file_path, 'w') as f:
-            json.dump(eval_info, f)
+            json.dump(all_preds, f, indent=2)
         logging.info('Saved eval info to %s' % file_path)
 

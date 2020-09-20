@@ -1,8 +1,11 @@
 from .imitation import ImitationTrainer
-from .primitive_language import PrimitiveLanguageTrainer
-from .interactive_primitive_language import InteractivePrimitiveLanguageTrainer
-from .active_primitive_language import ActivePrimitiveLanguageTrainer
-from .abstract_language import AbstractLanguageTrainer
+from .describer import DescriberTrainer
+from .executor import ExecutorTrainer
+from .describer_pragmatic import DescriberPragmaticTrainer
+from .language import LanguageTrainer
+from .unsupervised import UnsupervisedTrainer
+from .rl import RLTrainer
+
 
 def load(config):
     cls_name = config.trainer.name

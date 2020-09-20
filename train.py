@@ -8,7 +8,6 @@ from datetime import datetime
 import torch
 
 import flags
-import worlds
 import data
 import trainers
 import students
@@ -20,14 +19,13 @@ from misc import util
 def main():
 
     config = configure()
-    world = worlds.load(config)
     datasets = data.load(config)
     trainer = trainers.load(config)
     student = students.load(config)
     teacher = teachers.load(config)
 
     with torch.cuda.device(config.device_id):
-        trainer.train(datasets, world, student, teacher)
+        trainer.train(datasets, student, teacher)
 
 def configure():
 

@@ -13,7 +13,6 @@ import worlds
 import data
 import trainers
 import students
-import teachers
 
 from misc import util
 
@@ -21,31 +20,13 @@ from misc import util
 def main():
 
     config = configure()
-    world = worlds.load(config)
     datasets = data.load(config)
     trainer = trainers.load(config)
     student = students.load(config)
-    teacher = teachers.load(config)
 
     with torch.cuda.device(config.device_id):
-        _, dev_eval_info = trainer.evaluate(
-            datasets['dev'], world, student, teacher, save_traj=True)
-        breakdown_results(dev_eval_info, datasets['dev'])
-        _, test_eval_info = trainer.evaluate(
-            datasets['test'], world, student, teacher, save_traj=True)
-        breakdown_results(test_eval_info, datasets['test'])
-
-def breakdown_results(eval_info, dataset):
-    success_table = defaultdict(list)
-    for instance in dataset:
-        instance_id = instance['id']
-        task = instance['task']
-        success_table[task.goal_name].append(eval_info[instance_id]['success'])
-        success_table[str(task)].append(eval_info[instance_id]['success'])
-
-    for k, v in success_table.items():
-        logging.info('%15s (%4.1f%%) %.1f' %
-            (k, len(v) / len(dataset) * 100, sum(v) / len(v) * 100))
+        trainer.evaluate(datasets['val'], student, save_pred=True)
+        trainer.evaluate(datasets['test'], student, save_pred=True)
 
 def configure():
 
