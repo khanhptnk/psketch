@@ -41,8 +41,8 @@ class LanguageStudent(ImitationStudent):
         self.exploration_model = models.load(model_config).to(self.device)
         self.execution_model   = models.load(model_config).to(self.device)
 
-        logging.info('model: ' + str(self.exploration_model))
-        logging.info('model: ' + str(self.execution_model))
+        logging.info('exploration model: ' + str(self.exploration_model))
+        logging.info('execution model: '   + str(self.execution_model))
 
         self.optim = torch.optim.Adam(
             list(self.exploration_model.parameters()) +
